@@ -1,167 +1,405 @@
 /* =========================================================
    SMART CITY SINGAPURA
-   SCRIPT.JS
-   ========================================================= */
+   SCRIPT.JS — PARTE 1/5
+   BASE • NAVEGAÇÃO • MENU • BUSCA
+========================================================= */
+
+"use strict";
 
 
 /* =========================================================
-   01. FUNÇÕES GERAIS
-   ========================================================= */
+   01. ESTADO GLOBAL
+========================================================= */
 
-document.addEventListener("DOMContentLoaded", () => {
+const App = {
 
-    initializeNavigation();
-    initializeMobileMenu();
-    initializeSingaporeFilters();
-    initializeSingaporeDetails();
-    initializeTechnologyTabs();
-    initializeMindMap();
-    initializeQuiz();
-    initializePoll();
-    initializeSearch();
-    initializeCityDiagnosis();
-    initializeSourceFilters();
-    initializeScrollButtons();
-    drawMindConnections();
+    currentTab: "inicio",
 
-});
+    currentTechnology: null,
 
+    currentSingaporeDetail: null,
 
-/* =========================================================
-   02. NAVEGAÇÃO PRINCIPAL
-   ========================================================= */
+    searchOpen: false,
 
-function initializeNavigation() {
+    mobileMenuOpen: false,
 
-    const navLinks = document.querySelectorAll(".nav-link");
-    const sections = document.querySelectorAll(".tab-section");
+    quiz: {
+        currentQuestion: 0,
+        score: 0,
+        answered: false
+    },
 
-    navLinks.forEach(button => {
-
-        button.addEventListener("click", () => {
-
-            const tab = button.dataset.tab;
-
-            if (!tab) {
-                return;
-            }
-
-            openTab(tab);
-
-        });
-
-    });
-
-
-    function openTab(tabId) {
-
-        sections.forEach(section => {
-
-            section.classList.remove("active");
-
-        });
-
-
-        navLinks.forEach(button => {
-
-            button.classList.remove("active");
-
-        });
-
-
-        const target = document.getElementById(tabId);
-
-        if (target) {
-
-            target.classList.add("active");
-
-        }
-
-
-        const activeButton =
-            document.querySelector(
-                `.nav-link[data-tab="${tabId}"]`
-            );
-
-
-        if (activeButton) {
-
-            activeButton.classList.add("active");
-
-        }
-
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
-
-
-        closeMobileMenu();
-
+    cityTest: {
+        active: false,
+        cityName: "",
+        currentQuestion: 0,
+        answers: [],
+        dimensions: {}
     }
 
+};
 
-    window.openTab = openTab;
+
+/* =========================================================
+   02. FUNÇÕES AUXILIARES
+========================================================= */
+
+function $(selector, parent = document) {
+    return parent.querySelector(selector);
+}
+
+
+function $$(selector, parent = document) {
+    return Array.from(
+        parent.querySelectorAll(selector)
+    );
+}
+
+
+function byId(id) {
+    return document.getElementById(id);
+}
+
+
+function safeText(value) {
+    return String(value ?? "")
+        .replace(/[<>&"'`]/g, character => {
+            const entities = {
+                "<": "&lt;",
+                ">": "&gt;",
+                "&": "&amp;",
+                '"': "&quot;",
+                "'": "&#039;",
+                "`": "&#096;"
+            };
+
+            return entities[character];
+        });
+}
+
+
+function normalizeText(value) {
+
+    return String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+
+}
+
+
+function clamp(value, min, max) {
+
+    return Math.min(
+        Math.max(value, min),
+        max
+    );
+
+}
+
+
+function scrollToElement(element, offset = 80) {
+
+    if (!element) return;
+
+    const top =
+        element.getBoundingClientRect().top +
+        window.scrollY -
+        offset;
+
+    window.scrollTo({
+        top: Math.max(0, top),
+        behavior: "smooth"
+    });
+
+}
+
+
+function showElement(element) {
+
+    if (!element) return;
+
+    element.classList.remove("hidden");
+    element.removeAttribute("hidden");
+
+}
+
+
+function hideElement(element) {
+
+    if (!element) return;
+
+    element.classList.add("hidden");
+    element.setAttribute("hidden", "hidden");
 
 }
 
 
 /* =========================================================
-   03. MENU MOBILE
-   ========================================================= */
+   03. NAVEGAÇÃO PRINCIPAL
+========================================================= */
 
-function initializeMobileMenu() {
+function openTab(tabId, options = {}) {
 
-    const menuButton =
-        document.querySelector(".mobile-menu");
+    if (!tabId) return;
 
-    const navigation =
-        document.querySelector(".navigation");
+    const sections = $$(
+        ".tab-section"
+    );
 
+    const target =
+        byId(tabId);
 
-    if (!menuButton || !navigation) {
+    if (!target) {
+
+        console.warn(
+            `Seção "${tabId}" não encontrada.`
+        );
+
         return;
+
     }
 
 
-    menuButton.addEventListener("click", () => {
+    sections.forEach(section => {
 
-        navigation.classList.toggle("open");
+        const active =
+            section.id === tabId;
 
-        const isOpen =
-            navigation.classList.contains("open");
+        section.classList.toggle(
+            "active",
+            active
+        );
 
-        menuButton.setAttribute(
-            "aria-expanded",
-            isOpen
+        section.classList.toggle(
+            "is-active",
+            active
+        );
+
+        section.setAttribute(
+            "aria-hidden",
+            active ? "false" : "true"
         );
 
     });
 
 
-    document.addEventListener("click", event => {
+    $$("[data-tab]").forEach(button => {
+
+        const buttonTarget =
+            button.dataset.tab;
+
+        const active =
+            buttonTarget === tabId;
+
+        button.classList.toggle(
+            "active",
+            active
+        );
+
+        button.classList.toggle(
+            "is-active",
+            active
+        );
 
         if (
-            !navigation.contains(event.target) &&
-            !menuButton.contains(event.target)
+            button.hasAttribute("aria-current") ||
+            active
         ) {
 
-            closeMobileMenu();
+            button.setAttribute(
+                "aria-current",
+                active ? "page" : "false"
+            );
 
         }
 
     });
 
 
-    window.closeMobileMenu = closeMobileMenu;
+    App.currentTab =
+        tabId;
 
 
-    function closeMobileMenu() {
+    closeMobileMenu();
 
-        navigation.classList.remove("open");
 
-        menuButton.setAttribute(
+    if (
+        options.scroll !== false
+    ) {
+
+        requestAnimationFrame(() => {
+
+            scrollToElement(
+                target,
+                options.offset ?? 82
+            );
+
+        });
+
+    }
+
+
+    document.dispatchEvent(
+        new CustomEvent(
+            "smartcity:tabchange",
+            {
+                detail: {
+                    tab: tabId
+                }
+            }
+        )
+    );
+
+}
+
+
+/*
+ * Disponibiliza a função globalmente.
+ *
+ * Isso é importante porque os botões do HTML
+ * podem utilizar:
+ *
+ * onclick="openTab('inicio')"
+ */
+
+window.openTab =
+    openTab;
+
+
+/* =========================================================
+   04. NAVEGAÇÃO POR DATA-TAB
+========================================================= */
+
+function handleTabClick(event) {
+
+    const button =
+        event.target.closest(
+            "[data-tab]"
+        );
+
+    if (!button) return;
+
+    event.preventDefault();
+
+    const target =
+        button.dataset.tab;
+
+    if (!target) return;
+
+    openTab(target);
+
+}
+
+
+/* =========================================================
+   05. MENU MOBILE
+========================================================= */
+
+function getMenuElements() {
+
+    return {
+
+        toggle:
+            $(".menu-toggle"),
+
+        nav:
+            $(".main-nav"),
+
+        header:
+            $(".site-header")
+
+    };
+
+}
+
+
+function openMobileMenu() {
+
+    const {
+        toggle,
+        nav,
+        header
+    } =
+        getMenuElements();
+
+    if (!nav) return;
+
+    App.mobileMenuOpen =
+        true;
+
+    nav.classList.add(
+        "mobile-open"
+    );
+
+    nav.classList.add(
+        "open"
+    );
+
+    if (header) {
+
+        header.classList.add(
+            "menu-open"
+        );
+
+    }
+
+    if (toggle) {
+
+        toggle.classList.add(
+            "active"
+        );
+
+        toggle.setAttribute(
+            "aria-expanded",
+            "true"
+        );
+
+    }
+
+}
+
+
+function closeMobileMenu() {
+
+    const {
+        toggle,
+        nav,
+        header
+    } =
+        getMenuElements();
+
+    App.mobileMenuOpen =
+        false;
+
+    if (nav) {
+
+        nav.classList.remove(
+            "mobile-open"
+        );
+
+        nav.classList.remove(
+            "open"
+        );
+
+    }
+
+    if (header) {
+
+        header.classList.remove(
+            "menu-open"
+        );
+
+    }
+
+    if (toggle) {
+
+        toggle.classList.remove(
+            "active"
+        );
+
+        toggle.setAttribute(
             "aria-expanded",
             "false"
         );
@@ -171,2455 +409,851 @@ function initializeMobileMenu() {
 }
 
 
-/* =========================================================
-   04. BOTÕES DE SCROLL PARA ABAS
-   ========================================================= */
-
-function initializeScrollButtons() {
-
-    const buttons =
-        document.querySelectorAll(
-            "[data-scroll-tab]"
-        );
-
-
-    buttons.forEach(button => {
-
-        button.addEventListener("click", () => {
-
-            const tab =
-                button.dataset.scrollTab;
-
-            if (
-                typeof window.openTab ===
-                "function"
-            ) {
-
-                window.openTab(tab);
-
-            }
-
-        });
-
-    });
-
-}
-
-
-/* =========================================================
-   05. FILTROS DE SINGAPURA
-   ========================================================= */
-
-function initializeSingaporeFilters() {
-
-    const filters =
-        document.querySelectorAll(
-            "[data-filter]"
-        );
-
-    const cards =
-        document.querySelectorAll(
-            ".info-card"
-        );
-
-
-    if (!filters.length) {
-        return;
-    }
-
-
-    filters.forEach(filter => {
-
-        filter.addEventListener("click", () => {
-
-            const selected =
-                filter.dataset.filter;
-
-
-            filters.forEach(button => {
-
-                button.classList.remove("active");
-
-            });
-
-
-            filter.classList.add("active");
-
-
-            cards.forEach(card => {
-
-                const category =
-                    card.dataset.category;
-
-
-                if (
-                    selected === "todos" ||
-                    category === selected
-                ) {
-
-                    card.classList.remove("hidden");
-
-                } else {
-
-                    card.classList.add("hidden");
-
-                }
-
-            });
-
-        });
-
-    });
-
-}
-
-
-/* =========================================================
-   06. DETALHES DOS CARDS DE SINGAPURA
-   ========================================================= */
-
-function initializeSingaporeDetails() {
-
-    const cards =
-        document.querySelectorAll(
-            "[data-detail]"
-        );
-
-    const detailContainer =
-        document.getElementById(
-            "detailContent"
-        );
-
-
-    if (!cards.length || !detailContainer) {
-        return;
-    }
-
-
-    const details = {
-
-        cultura: {
-
-            title:
-                "Mosaico cultural de Singapura",
-
-            subtitle:
-                "Uma cidade formada pela convivência entre diferentes comunidades.",
-
-            image:
-                "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Singapura é uma sociedade multicultural na qual comunidades de origem chinesa, malaia, indiana e outras populações convivem em um território pequeno e densamente urbanizado. Essa diversidade aparece na arquitetura, na alimentação, nas festas, nos idiomas e nos bairros históricos.",
-
-            importance:
-                "A diversidade cultural ajuda a explicar por que o planejamento urbano de Singapura não pode ser entendido apenas como um projeto tecnológico. A cidade também precisa organizar espaços públicos, moradia, transporte e serviços de maneira capaz de atender grupos com diferentes tradições.",
-
-            points: [
-
-                "Chinatown, Little India e Kampong Glam preservam referências culturais distintas.",
-
-                "O inglês possui papel importante na comunicação institucional e educacional.",
-
-                "A política habitacional também influencia a convivência entre diferentes grupos.",
-
-                "A gastronomia é uma das principais expressões da diversidade cultural."
-
-            ],
-
-            lesson:
-                "Para cidades brasileiras, a principal lição é que tecnologia e planejamento urbano precisam considerar identidade cultural, diversidade e inclusão.",
-
-            challenge:
-                "Uma cidade multicultural precisa equilibrar integração social e preservação das identidades culturais."
-
-        },
-
-
-        singlish: {
-
-            title:
-                "Singlish",
-
-            subtitle:
-                "A linguagem cotidiana que mistura influências culturais.",
-
-            image:
-                "https://images.unsplash.com/photo-1496939376851-89342e90adcd?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Singlish é o nome popular dado à variedade informal de inglês utilizada no cotidiano de parte da população de Singapura. Ela recebeu influências de idiomas e variedades linguísticas presentes na sociedade singapuriana.",
-
-            importance:
-                "O fenômeno mostra que uma cidade inteligente não é formada somente por algoritmos, sensores e infraestrutura. Comunicação, identidade e cultura também fazem parte da experiência urbana.",
-
-            points: [
-
-                "Possui forte influência de diferentes comunidades linguísticas.",
-
-                "É especialmente associado à comunicação informal.",
-
-                "Não deve ser confundido com o inglês formal utilizado pelo governo.",
-
-                "É um exemplo da interação entre tecnologia, globalização e cultura local."
-
-            ],
-
-            lesson:
-                "Projetos digitais devem considerar como as pessoas realmente se comunicam e utilizam os serviços, evitando criar sistemas difíceis de compreender.",
-
-            challenge:
-                "Conciliar uma língua franca global com a preservação das características linguísticas locais."
-
-        },
-
-
-        hawker: {
-
-            title:
-                "Hawker Centres",
-
-            subtitle:
-                "Alimentação, cultura e espaço público em um mesmo lugar.",
-
-            image:
-                "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Os hawker centres são espaços coletivos onde diferentes vendedores oferecem alimentos variados. Eles se tornaram uma parte importante da vida cotidiana de Singapura e representam uma combinação entre alimentação, economia local e convivência social.",
-
-            importance:
-                "Além de sua dimensão gastronômica, esses espaços mostram como equipamentos urbanos podem desempenhar funções sociais e econômicas simultaneamente.",
-
-            points: [
-
-                "Oferecem refeições variadas em espaços compartilhados.",
-
-                "Ajudam pequenos comerciantes a participar da economia urbana.",
-
-                "Funcionam como pontos de encontro da população.",
-
-                "A cultura hawker recebeu reconhecimento internacional da UNESCO."
-
-            ],
-
-            lesson:
-                "Cidades inteligentes também precisam valorizar espaços públicos e atividades econômicas tradicionais.",
-
-            challenge:
-                "Modernizar infraestrutura e condições de trabalho sem destruir a identidade cultural desses espaços."
-
-        },
-
-
-        economia: {
-
-            title:
-                "Economia avançada",
-
-            subtitle:
-                "Planejamento, comércio internacional e infraestrutura.",
-
-            image:
-                "https://images.unsplash.com/photo-1565967511849-76a60a516170?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "A economia de Singapura está fortemente relacionada ao comércio internacional, aos serviços financeiros, à indústria, à tecnologia e à logística. Sua localização estratégica contribuiu para transformar a cidade em um importante centro econômico global.",
-
-            importance:
-                "A infraestrutura urbana é diretamente ligada à competitividade econômica. Transporte eficiente, conectividade digital, qualificação profissional e logística integrada reduzem custos e facilitam negócios.",
-
-            points: [
-
-                "Forte integração ao comércio internacional.",
-
-                "Grande importância da atividade portuária.",
-
-                "Presença de setores financeiros e tecnológicos.",
-
-                "Investimento contínuo em infraestrutura e qualificação."
-
-            ],
-
-            lesson:
-                "Planejamento urbano pode ser utilizado como instrumento de desenvolvimento econômico, desde que acompanhado por inclusão social.",
-
-            challenge:
-                "Manter competitividade econômica sem ampliar desigualdades ou pressionar excessivamente o território."
-
-        },
-
-
-        porto: {
-
-            title:
-                "Porto de Singapura",
-
-            subtitle:
-                "Uma das principais plataformas logísticas marítimas do planeta.",
-
-            image:
-                "https://images.unsplash.com/photo-1494412651409-8963ce7935a7?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "O porto de Singapura ocupa posição estratégica nas rotas marítimas internacionais. Sua eficiência depende de infraestrutura, automação, logística, sistemas digitais e integração com outros meios de transporte.",
-
-            importance:
-                "O porto demonstra como tecnologia pode ser utilizada para coordenar enormes quantidades de informação e movimentação de cargas.",
-
-            points: [
-
-                "Localização estratégica nas rotas marítimas asiáticas.",
-
-                "Uso intensivo de automação e sistemas digitais.",
-
-                "Integração entre logística portuária e infraestrutura terrestre.",
-
-                "Importância para o comércio internacional."
-
-            ],
-
-            lesson:
-                "Uma cidade inteligente precisa pensar além das ruas: logística, cadeias de abastecimento e infraestrutura econômica também fazem parte do sistema urbano.",
-
-            challenge:
-                "Aumentar eficiência e capacidade mantendo sustentabilidade ambiental e resiliência logística."
-
-        },
-
-
-        virtual: {
-
-            title:
-                "Virtual Singapore",
-
-            subtitle:
-                "Um modelo digital tridimensional da cidade.",
-
-            image:
-                "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Virtual Singapore é um conceito de modelo digital tridimensional utilizado para representar o território urbano e possibilitar análises, simulações e visualizações.",
-
-            importance:
-                "Modelos digitais permitem testar cenários antes de determinadas intervenções físicas. Isso pode ajudar pesquisadores, planejadores e gestores a compreender relações entre edifícios, mobilidade, energia, ambiente e população.",
-
-            points: [
-
-                "Representação tridimensional do ambiente urbano.",
-
-                "Possibilidade de simular diferentes cenários.",
-
-                "Integração potencial de dados urbanos.",
-
-                "Apoio ao planejamento e à tomada de decisões."
-
-            ],
-
-            lesson:
-                "Gêmeos digitais podem transformar dados urbanos em ferramentas de planejamento mais visual e analítico.",
-
-            challenge:
-                "Garantir qualidade, atualização, interoperabilidade e proteção dos dados utilizados nos modelos."
-
-        },
-
-
-        agricultura: {
-
-            title:
-                "Agricultura vertical",
-
-            subtitle:
-                "Produção de alimentos utilizando pouco espaço horizontal.",
-
-            image:
-                "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Como Singapura possui território limitado e depende de importações para grande parte de sua alimentação, tecnologias de agricultura urbana e vertical podem contribuir para aumentar a produção local.",
-
-            importance:
-                "A agricultura vertical utiliza estruturas em camadas e pode combinar iluminação artificial, sensores, automação, controle de nutrientes e ambientes protegidos.",
-
-            points: [
-
-                "Uso eficiente do espaço urbano.",
-
-                "Possibilidade de produção próxima aos consumidores.",
-
-                "Controle mais preciso de água e nutrientes.",
-
-                "Integração com sensores e automação."
-
-            ],
-
-            lesson:
-                "Em cidades densas, sistemas alimentares também precisam ser planejados como parte da infraestrutura urbana.",
-
-            challenge:
-                "Custos de energia, investimento inicial e viabilidade econômica continuam sendo fatores importantes."
-
-        },
-
-
-        supertrees: {
-
-            title:
-                "Supertrees",
-
-            subtitle:
-                "Arquitetura, vegetação e tecnologia no mesmo espaço.",
-
-            image:
-                "https://images.unsplash.com/photo-1508964942454-1a56651d54ac?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Os Supertrees são estruturas verticais presentes no Gardens by the Bay. Além de sua função paisagística e turística, algumas estruturas incorporam tecnologias relacionadas à energia e ao manejo ambiental.",
-
-            importance:
-                "Eles representam uma característica importante do modelo de Singapura: combinar infraestrutura, paisagismo, turismo e sustentabilidade em projetos urbanos visualmente marcantes.",
-
-            points: [
-
-                "Estruturas verticais cobertas por vegetação.",
-
-                "Integração com o projeto paisagístico do Gardens by the Bay.",
-
-                "Alguns sistemas incorporam geração de energia solar.",
-
-                "Também ajudam a criar uma identidade visual para a cidade."
-
-            ],
-
-            lesson:
-                "Infraestrutura urbana pode cumprir simultaneamente funções ambientais, sociais, econômicas e culturais.",
-
-            challenge:
-                "Projetos icônicos precisam ser avaliados também por custo, manutenção e impacto ambiental real."
-
-        },
-
-
-        newater: {
-
-            title:
-                "NEWater",
-
-            subtitle:
-                "Reúso avançado da água para aumentar a segurança hídrica.",
-
-            image:
-                "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "NEWater é o nome utilizado em Singapura para água produzida a partir de água usada que passa por processos avançados de tratamento e purificação. O programa faz parte da estratégia de segurança hídrica do país.",
-
-            importance:
-                "O sistema reduz a dependência de fontes convencionais e mostra como tratamento, tecnologia e planejamento de longo prazo podem ser utilizados para enfrentar a escassez hídrica.",
-
-            points: [
-
-                "Utilização de água previamente usada como matéria-prima.",
-
-                "Processos avançados de tratamento e purificação.",
-
-                "Integração com a estratégia nacional de segurança hídrica.",
-
-                "Uso importante em aplicações industriais e, conforme o sistema, para reforço de reservatórios."
-
-            ],
-
-            lesson:
-                "A gestão inteligente da água deve considerar tratamento, reúso, monitoramento, consumo e planejamento de longo prazo.",
-
-            challenge:
-                "Tecnologias de reúso exigem infraestrutura, energia, controle rigoroso e confiança pública."
-
-        },
-
-
-        transporte: {
-
-            title:
-                "Mobilidade inteligente",
-
-            subtitle:
-                "Transporte público, dados e planejamento urbano integrado.",
-
-            image:
-                "https://images.unsplash.com/photo-1566552881560-0be862a7c445?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "O sistema de mobilidade de Singapura combina transporte público, planejamento territorial, políticas de uso do automóvel e tecnologias digitais.",
-
-            importance:
-                "A mobilidade é um dos pilares de uma cidade inteligente porque influencia tempo de deslocamento, emissões, produtividade, acessibilidade e qualidade de vida.",
-
-            points: [
-
-                "Extensa rede de transporte coletivo.",
-
-                "Integração entre planejamento urbano e transporte.",
-
-                "Uso de dados para gerenciamento da mobilidade.",
-
-                "Tecnologias digitais utilizadas em serviços e infraestrutura."
-
-            ],
-
-            lesson:
-                "Uma cidade inteligente não é aquela que possui mais carros autônomos, mas aquela que consegue oferecer deslocamentos eficientes, seguros e acessíveis.",
-
-            challenge:
-                "Manter transporte acessível e eficiente diante do crescimento populacional e das mudanças tecnológicas."
-
-        },
-
-
-        governanca: {
-
-            title:
-                "Governo digital",
-
-            subtitle:
-                "Serviços públicos conectados ao cidadão.",
-
-            image:
-                "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1400&q=85",
-
-            introduction:
-                "Singapura desenvolveu uma ampla estratégia de transformação digital do Estado, incluindo identidade digital, pagamentos eletrônicos, serviços públicos online e integração de dados.",
-
-            importance:
-                "O governo digital pode reduzir burocracia e facilitar o acesso aos serviços públicos quando os sistemas são projetados de maneira integrada e inclusiva.",
-
-            points: [
-
-                "Serviços públicos digitais.",
-
-                "Identidade digital por meio de sistemas como Singpass.",
-
-                "Uso de dados para melhorar políticas públicas.",
-
-                "Integração crescente entre diferentes serviços."
-
-            ],
-
-            lesson:
-                "A transformação digital do governo deve ser acompanhada por segurança, privacidade, transparência e inclusão digital.",
-
-            challenge:
-                "Quanto maior a integração dos dados, maior também é a necessidade de governança, segurança e proteção da privacidade."
-
-        }
-
-    };
-
-
-    cards.forEach(card => {
-
-        const detailId =
-            card.dataset.detail;
-
-
-        const button =
-            card.querySelector(
-                ".card-link"
-            );
-
-
-        const action =
-            () => openSingaporeDetail(
-                detailId
-            );
-
-
-        card.addEventListener(
-            "click",
-            event => {
-
-                if (
-                    event.target.closest(
-                        ".card-link"
-                    )
-                ) {
-                    return;
-                }
-
-                action();
-
-            }
-        );
-
-
-        if (button) {
-
-            button.addEventListener(
-                "click",
-                event => {
-
-                    event.preventDefault();
-
-                    event.stopPropagation();
-
-                    action();
-
-                }
-            );
-
-        }
-
-    });
-
-
-    function openSingaporeDetail(detailId) {
-
-        const data =
-            details[detailId];
-
-
-        if (!data) {
-            return;
-        }
-
-
-        detailContainer.innerHTML = `
-
-            <div class="detail-header">
-
-                <button
-                    class="back-button"
-                    id="backToSingapore"
-                >
-                    ← Voltar para Singapura
-                </button>
-
-                <span class="eyebrow">
-                    EXPLORAÇÃO DETALHADA
-                </span>
-
-                <h2>
-                    ${data.title}
-                </h2>
-
-                <p>
-                    ${data.subtitle}
-                </p>
-
-            </div>
-
-
-            <article class="detail-article">
-
-                <div class="detail-article-image">
-
-                    <img
-                        src="${data.image}"
-                        alt="${data.title}"
-                        loading="lazy"
-                    >
-
-                </div>
-
-
-                <div class="detail-article-text">
-
-                    <h3>
-                        O que é?
-                    </h3>
-
-                    <p>
-                        ${data.introduction}
-                    </p>
-
-                    <h3>
-                        Por que isso importa?
-                    </h3>
-
-                    <p>
-                        ${data.importance}
-                    </p>
-
-                </div>
-
-            </article>
-
-
-            <div class="detail-sections">
-
-                <div class="detail-box">
-
-                    <h4>
-                        Principais características
-                    </h4>
-
-                    <ul>
-
-                        ${data.points.map(
-                            point => `
-                                <li>
-                                    ${point}
-                                </li>
-                            `
-                        ).join("")}
-
-                    </ul>
-
-                </div>
-
-
-                <div class="detail-box">
-
-                    <h4>
-                        O que o Brasil pode aprender?
-                    </h4>
-
-                    <p>
-                        ${data.lesson}
-                    </p>
-
-                </div>
-
-
-                <div class="detail-box">
-
-                    <h4>
-                        Desafios
-                    </h4>
-
-                    <p>
-                        ${data.challenge}
-                    </p>
-
-                </div>
-
-
-                <div class="detail-box">
-
-                    <h4>
-                        Ideia central
-                    </h4>
-
-                    <p>
-                        Uma cidade inteligente deve combinar
-                        tecnologia, planejamento urbano,
-                        sustentabilidade e qualidade de vida.
-                    </p>
-
-                </div>
-
-            </div>
-
-        `;
-
-
-        if (
-            typeof window.openTab ===
-            "function"
-        ) {
-
-            window.openTab(
-                "detalhes-singapura"
-            );
-
-        }
-
-
-        const backButton =
-            document.getElementById(
-                "backToSingapore"
-            );
-
-
-        if (backButton) {
-
-            backButton.addEventListener(
-                "click",
-                () => {
-
-                    window.openTab(
-                        "singapura"
-                    );
-
-                }
-            );
-
-        }
-
-    }
-
-}
-
-
-/* =========================================================
-   07. ABAS DE TECNOLOGIA
-   ========================================================= */
-
-function initializeTechnologyTabs() {
-
-    const tabs =
-        document.querySelectorAll(
-            ".technology-tab"
-        );
-
-    const panels =
-        document.querySelectorAll(
-            ".technology-panel"
-        );
-
-
-    if (!tabs.length) {
-        return;
-    }
-
-
-    tabs.forEach(tab => {
-
-        tab.addEventListener("click", () => {
-
-            const target =
-                tab.dataset.tech;
-
-
-            tabs.forEach(item => {
-
-                item.classList.remove(
-                    "active"
-                );
-
-            });
-
-
-            panels.forEach(panel => {
-
-                panel.classList.remove(
-                    "active"
-                );
-
-            });
-
-
-            tab.classList.add("active");
-
-
-            const panel =
-                document.querySelector(
-                    `.technology-panel[data-tech-panel="${target}"]`
-                );
-
-
-            if (panel) {
-
-                panel.classList.add(
-                    "active"
-                );
-
-            }
-
-        });
-
-    });
-
-}
-
-
-/* =========================================================
-   08. MAPA MENTAL
-   ========================================================= */
-
-function initializeMindMap() {
-
-    const nodes =
-        document.querySelectorAll(
-            ".mind-node"
-        );
-
-    const info =
-        document.getElementById(
-            "mindInfo"
-        );
-
-
-    if (!nodes.length || !info) {
-        return;
-    }
-
-
-    const mindData = {
-
-        mobilidade: {
-
-            title:
-                "Mobilidade inteligente",
-
-            text:
-                "Envolve transporte público eficiente, gerenciamento de tráfego, dados de mobilidade, acessibilidade e planejamento urbano orientado ao deslocamento das pessoas."
-
-        },
-
-
-        tecnologia: {
-
-            title:
-                "Tecnologia e dados",
-
-            text:
-                "Sensores, IoT, inteligência artificial, conectividade e plataformas digitais permitem observar o funcionamento da cidade e apoiar decisões."
-
-        },
-
-
-        sustentabilidade: {
-
-            title:
-                "Sustentabilidade",
-
-            text:
-                "Uma cidade inteligente precisa reduzir impactos ambientais por meio de energia eficiente, gestão de resíduos, água, áreas verdes e redução de emissões."
-
-        },
-
-
-        governanca: {
-
-            title:
-                "Governança",
-
-            text:
-                "Dados e tecnologia devem apoiar serviços públicos, transparência, planejamento, participação social, segurança e tomada de decisões."
-
-        },
-
-
-        pessoas: {
-
-            title:
-                "Pessoas",
-
-            text:
-                "O cidadão deve permanecer no centro. Inclusão digital, acessibilidade, educação, saúde, segurança e qualidade de vida são fundamentais."
-
-        },
-
-
-        economia: {
-
-            title:
-                "Economia",
-
-            text:
-                "Tecnologia pode estimular inovação, produtividade, novos negócios, qualificação profissional e competitividade urbana."
-
-        },
-
-
-        resiliencia: {
-
-            title:
-                "Resiliência",
-
-            text:
-                "Cidades precisam estar preparadas para eventos climáticos, crises de infraestrutura, problemas sanitários e outras situações de emergência."
-
-        },
-
-
-        planejamento: {
-
-            title:
-                "Planejamento urbano",
-
-            text:
-                "Uso do solo, habitação, transporte, infraestrutura e equipamentos públicos devem ser pensados de maneira integrada e baseada em evidências."
-
-        }
-
-    };
-
-
-    nodes.forEach(node => {
-
-        node.addEventListener("click", () => {
-
-            const key =
-                node.dataset.mind;
-
-
-            const data =
-                mindData[key];
-
-
-            if (!data) {
-                return;
-            }
-
-
-            nodes.forEach(item => {
-
-                item.classList.remove(
-                    "active"
-                );
-
-            });
-
-
-            node.classList.add("active");
-
-
-            info.innerHTML = `
-
-                <h3>
-                    ${data.title}
-                </h3>
-
-                <p>
-                    ${data.text}
-                </p>
-
-            `;
-
-        });
-
-    });
-
-}
-
-
-/* =========================================================
-   09. LINHAS DO MAPA MENTAL
-   ========================================================= */
-
-function drawMindConnections() {
-
-    const map =
-        document.querySelector(
-            ".mind-map"
-        );
-
-    const svg =
-        document.querySelector(
-            ".mind-connections"
-        );
-
-    const center =
-        document.querySelector(
-            ".mind-center"
-        );
-
-    const nodes =
-        document.querySelectorAll(
-            ".mind-node"
-        );
-
+function toggleMobileMenu() {
 
     if (
-        !map ||
-        !svg ||
-        !center ||
-        !nodes.length
+        App.mobileMenuOpen
     ) {
-        return;
+
+        closeMobileMenu();
+
+    } else {
+
+        openMobileMenu();
+
     }
-
-
-    const mapRect =
-        map.getBoundingClientRect();
-
-    const centerRect =
-        center.getBoundingClientRect();
-
-
-    const centerX =
-        centerRect.left -
-        mapRect.left +
-        centerRect.width / 2;
-
-
-    const centerY =
-        centerRect.top -
-        mapRect.top +
-        centerRect.height / 2;
-
-
-    svg.innerHTML = "";
-
-
-    nodes.forEach(node => {
-
-        const rect =
-            node.getBoundingClientRect();
-
-
-        const nodeX =
-            rect.left -
-            mapRect.left +
-            rect.width / 2;
-
-
-        const nodeY =
-            rect.top -
-            mapRect.top +
-            rect.height / 2;
-
-
-        const line =
-            document.createElementNS(
-                "http://www.w3.org/2000/svg",
-                "line"
-            );
-
-
-        line.setAttribute(
-            "x1",
-            centerX
-        );
-
-
-        line.setAttribute(
-            "y1",
-            centerY
-        );
-
-
-        line.setAttribute(
-            "x2",
-            nodeX
-        );
-
-
-        line.setAttribute(
-            "y2",
-            nodeY
-        );
-
-
-        svg.appendChild(line);
-
-    });
 
 }
 
 
-window.addEventListener(
-    "resize",
-    drawMindConnections
-);
-
-
 /* =========================================================
-   10. QUIZ
-   ========================================================= */
+   06. PESQUISA DO SITE
+========================================================= */
 
-function initializeQuiz() {
+const siteSearchItems = [
+
+    {
+        title:
+            "Início",
+
+        description:
+            "Visão geral das cidades inteligentes e de Singapura.",
+
+        tab:
+            "inicio",
+
+        keywords:
+            "inicio começo home cidade inteligente smart city singapura"
+    },
+
+    {
+        title:
+            "Singapura",
+
+        description:
+            "Como Singapura se tornou referência internacional.",
+
+        tab:
+            "singapura",
+
+        keywords:
+            "singapura singapore cidade pais smart nation"
+    },
+
+    {
+        title:
+            "Tecnologias",
+
+        description:
+            "Tecnologias utilizadas em cidades inteligentes.",
+
+        tab:
+            "tecnologias",
+
+        keywords:
+            "tecnologia tecnologias iot inteligencia artificial ia dados 5g agua energia transporte"
+    },
+
+    {
+        title:
+            "Mapa Mental",
+
+        description:
+            "Relações entre tecnologia, pessoas, dados e governança.",
+
+        tab:
+            "mapa-mental",
+
+        keywords:
+            "mapa mental planejamento governanca sustentabilidade dados pessoas"
+    },
+
+    {
+        title:
+            "Quiz",
+
+        description:
+            "Teste seus conhecimentos sobre cidades inteligentes.",
+
+        tab:
+            "quiz",
+
+        keywords:
+            "quiz perguntas teste conhecimento singapura"
+    },
+
+    {
+        title:
+            "Teste sua cidade",
+
+        description:
+            "Faça um diagnóstico de maturidade da sua cidade.",
+
+        tab:
+            "teste-cidade",
+
+        keywords:
+            "teste cidade diagnostico diagnóstico cidade municipio município avaliação"
+    },
+
+    {
+        title:
+            "Fontes",
+
+        description:
+            "Estudos, documentos e referências utilizadas no projeto.",
+
+        tab:
+            "fontes",
+
+        keywords:
+            "fontes estudos brasil governo smart nation pesquisa referencias"
+    }
+
+];
+
+
+function getSearchContainer() {
+
+    return (
+        $(".search-results") ||
+        $(".header-search-results") ||
+        byId("searchResults")
+    );
+
+}
+
+
+function getSearchInput() {
+
+    return (
+        $(".header-search input") ||
+        $(".header-search-input") ||
+        $("input[type='search']")
+    );
+
+}
+
+
+function renderSearchResults(query) {
 
     const container =
-        document.getElementById(
-            "quizQuestions"
-        );
+        getSearchContainer();
 
-    const result =
-        document.getElementById(
-            "quizResult"
-        );
+    if (!container) return;
 
-    const progressText =
-        document.getElementById(
-            "quizQuestionNumber"
-        );
+    const normalized =
+        normalizeText(query);
 
-    const progressFill =
-        document.getElementById(
-            "quizProgressBar"
-        );
-
-    const scoreDisplay =
-        document.getElementById(
-            "quizScore"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const questions = [
-
-        {
-            category: "Conceito",
-
-            question:
-                "Qual característica melhor define uma cidade inteligente?",
-
-            options: [
-
-                "Possuir muitos prédios tecnológicos",
-
-                "Usar tecnologia e dados para melhorar a vida urbana",
-
-                "Ter somente transporte autônomo",
-
-                "Eliminar completamente o trabalho humano"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Cidade inteligente é um conceito mais amplo que tecnologia: envolve planejamento, sustentabilidade, serviços públicos, participação e qualidade de vida."
-
-        },
-
-
-        {
-            category: "Singapura",
-
-            question:
-                "Em que ano o programa Smart Nation foi lançado oficialmente?",
-
-            options: [
-
-                "2005",
-
-                "2010",
-
-                "2014",
-
-                "2022"
-
-            ],
-
-            correct: 2,
-
-            explanation:
-                "A iniciativa Smart Nation foi lançada por Singapura em 2014."
-
-        },
-
-
-        {
-            category: "Mobilidade",
-
-            question:
-                "Por que o transporte público é importante para uma cidade inteligente?",
-
-            options: [
-
-                "Porque elimina qualquer necessidade de planejamento",
-
-                "Porque permite deslocamentos eficientes e reduz a dependência do automóvel",
-
-                "Porque substitui todos os espaços públicos",
-
-                "Porque impede o crescimento urbano"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Mobilidade inteligente busca deslocamentos eficientes, seguros, acessíveis e sustentáveis."
-
-        },
-
-
-        {
-            category: "Água",
-
-            question:
-                "O que é o NEWater?",
-
-            options: [
-
-                "Uma rede de metrô",
-
-                "Um sistema de inteligência artificial",
-
-                "Água produzida por processos avançados de tratamento e reúso",
-
-                "Um aplicativo de transporte"
-
-            ],
-
-            correct: 2,
-
-            explanation:
-                "NEWater é parte da estratégia de segurança hídrica de Singapura e utiliza tratamento avançado de água."
-
-        },
-
-
-        {
-            category: "Tecnologia",
-
-            question:
-                "Qual tecnologia permite conectar sensores e equipamentos à internet?",
-
-            options: [
-
-                "IoT",
-
-                "GPS analógico",
-
-                "Impressão 3D",
-
-                "Fibra óptica passiva"
-
-            ],
-
-            correct: 0,
-
-            explanation:
-                "IoT significa Internet das Coisas e envolve objetos e sensores conectados capazes de coletar e transmitir dados."
-
-        },
-
-
-        {
-            category: "Dados",
-
-            question:
-                "Qual é uma vantagem de utilizar dados urbanos?",
-
-            options: [
-
-                "Substituir todas as decisões humanas",
-
-                "Apoiar decisões com evidências sobre o funcionamento da cidade",
-
-                "Eliminar a necessidade de leis",
-
-                "Garantir que todos os problemas desapareçam"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Dados podem revelar padrões e apoiar decisões, mas não eliminam a necessidade de planejamento, participação e avaliação humana."
-
-        },
-
-
-        {
-            category: "Cultura",
-
-            question:
-                "O que os hawker centres representam em Singapura?",
-
-            options: [
-
-                "Somente centros comerciais",
-
-                "Espaços de alimentação e convivência social",
-
-                "Estações de metrô",
-
-                "Centros de pesquisa espacial"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Hawker centres são importantes espaços de alimentação, comércio e convivência social."
-
-        },
-
-
-        {
-            category: "Ambiente",
-
-            question:
-                "Qual é uma possível vantagem da agricultura vertical?",
-
-            options: [
-
-                "Exigir grandes áreas horizontais",
-
-                "Aumentar a distância entre produção e consumidores",
-
-                "Utilizar o espaço vertical de forma eficiente",
-
-                "Eliminar completamente o consumo de energia"
-
-            ],
-
-            correct: 2,
-
-            explanation:
-                "A agricultura vertical permite utilizar camadas e ambientes controlados, algo especialmente interessante em territórios urbanos densos."
-
-        },
-
-
-        {
-            category: "Planejamento",
-
-            question:
-                "O que é um gêmeo digital urbano?",
-
-            options: [
-
-                "Uma segunda cidade construída fisicamente",
-
-                "Uma representação digital de elementos e processos urbanos",
-
-                "Um sistema exclusivamente de segurança",
-
-                "Um mapa turístico"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Gêmeos digitais podem representar elementos físicos e dados de uma cidade para análise e simulação."
-
-        },
-
-
-        {
-            category: "Governança",
-
-            question:
-                "Por que a privacidade é importante em uma cidade baseada em dados?",
-
-            options: [
-
-                "Porque dados nunca devem ser utilizados",
-
-                "Porque informações pessoais precisam ser protegidas contra usos indevidos",
-
-                "Porque impede a inovação",
-
-                "Porque elimina serviços digitais"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Quanto maior o uso de dados, maior a importância de segurança, governança e proteção da privacidade."
-
-        },
-
-
-        {
-            category: "Energia",
-
-            question:
-                "O que caracteriza uma Smart Grid?",
-
-            options: [
-
-                "Uma rede elétrica sem sensores",
-
-                "Uma rede que utiliza tecnologias e dados para melhorar o gerenciamento da energia",
-
-                "Uma rede exclusivamente subterrânea",
-
-                "Uma rede que funciona sem eletricidade"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Smart Grids utilizam comunicação, automação e dados para melhorar monitoramento, eficiência e gestão da rede elétrica."
-
-        },
-
-
-        {
-            category: "Supertrees",
-
-            question:
-                "Os Supertrees estão associados principalmente a qual local?",
-
-            options: [
-
-                "Gardens by the Bay",
-
-                "Porto de Singapura",
-
-                "Aeroporto de Changi",
-
-                "Universidade Nacional"
-
-            ],
-
-            correct: 0,
-
-            explanation:
-                "Os Supertrees são uma das atrações e estruturas características do Gardens by the Bay."
-
-        },
-
-
-        {
-            category: "Governo digital",
-
-            question:
-                "Qual é uma característica importante de serviços públicos digitais?",
-
-            options: [
-
-                "Precisam funcionar apenas presencialmente",
-
-                "Devem facilitar o acesso aos serviços mantendo segurança e inclusão",
-
-                "Devem coletar todos os dados possíveis",
-
-                "Devem impedir a participação dos cidadãos"
-
-            ],
-
-            correct: 1,
-
-            explanation:
-                "Digitalização pode simplificar serviços, mas precisa considerar acessibilidade, segurança, privacidade e inclusão."
-
-        },
-
-
-        {
-            category: "Brasil",
-
-            question:
-                "Qual documento brasileiro apresenta diretrizes para cidades inteligentes?",
-
-            options: [
-
-                "Carta Brasileira para Cidades Inteligentes",
-
-                "Carta de Paris",
-
-                "Código Marítimo de Singapura",
-
-                "Tratado do Pacífico"
-
-            ],
-
-            correct: 0,
-
-            explanation:
-                "A Carta Brasileira para Cidades Inteligentes apresenta princípios e recomendações relacionados à transformação digital sustentável das cidades brasileiras."
-
-        },
-
-
-        {
-            category: "Pensamento crítico",
-
-            question:
-                "Qual afirmação é mais adequada sobre Singapura como modelo de cidade inteligente?",
-
-            options: [
-
-                "Todas as soluções podem ser copiadas diretamente por qualquer cidade",
-
-                "Tecnologia resolve automaticamente os problemas sociais",
-
-                "As soluções devem ser estudadas e adaptadas ao contexto de cada cidade",
-
-                "Cidades brasileiras não podem aplicar nenhuma solução tecnológica"
-
-            ],
-
-            correct: 2,
-
-            explanation:
-                "Singapura oferece casos interessantes, mas políticas urbanas dependem de contexto, escala, recursos, cultura, legislação e necessidades locais."
-
-        }
-
-    ];
-
-
-    let currentQuestion = 0;
-
-    let score = 0;
-
-    let answered = false;
-
-
-    function renderQuestion() {
-
-        const question =
-            questions[currentQuestion];
-
-
-        answered = false;
-
-
-        if (progressText) {
-
-            progressText.textContent =
-                `Questão ${currentQuestion + 1} de ${questions.length}`;
-
-        }
-
-        if (scoreDisplay) {
-            scoreDisplay.textContent =
-                `Pontuação: ${score}`;
-        }
-
-
-        if (progressFill) {
-
-            const percentage =
-                (
-                    currentQuestion /
-                    questions.length
-                ) * 100;
-
-            progressFill.style.width =
-                `${percentage}%`;
-
-        }
-
-
-        container.innerHTML = `
-
-            <div class="quiz-card">
-
-                <div class="quiz-category">
-                    ${question.category}
-                </div>
-
-                <h3>
-                    ${question.question}
-                </h3>
-
-                <div class="quiz-options">
-
-                    ${question.options.map(
-                        (option, index) => `
-
-                            <button
-                                class="quiz-option"
-                                data-answer="${index}"
-                            >
-                                ${option}
-                            </button>
-
-                        `
-                    ).join("")}
-
-                </div>
-
-                <div
-                    class="quiz-explanation hidden"
-                    id="quizExplanation"
-                ></div>
-
-                <button
-                    class="primary-button quiz-next hidden"
-                    id="quizNext"
-                >
-                    ${
-                        currentQuestion ===
-                        questions.length - 1
-                            ? "Ver resultado"
-                            : "Próxima questão →"
-                    }
-                </button>
-
-            </div>
-
-        `;
-
-
-        const options =
-            container.querySelectorAll(
-                ".quiz-option"
-            );
-
-
-        options.forEach(option => {
-
-            option.addEventListener(
-                "click",
-                () => {
-
-                    if (answered) {
-                        return;
-                    }
-
-
-                    answered = true;
-
-
-                    const selected =
-                        Number(
-                            option.dataset.answer
-                        );
-
-
-                    if (
-                        selected ===
-                        question.correct
-                    ) {
-
-                        score++;
-
-                        if (scoreDisplay) {
-                            scoreDisplay.textContent =
-                                `Pontuação: ${score}`;
-                        }
-
-                        option.classList.add(
-                            "correct"
-                        );
-
-                    } else {
-
-                        option.classList.add(
-                            "incorrect"
-                        );
-
-
-                        options[
-                            question.correct
-                        ].classList.add(
-                            "correct"
-                        );
-
-                    }
-
-
-                    options.forEach(
-                        button => {
-
-                            button.disabled =
-                                true;
-
-                        }
-                    );
-
-
-                    const explanation =
-                        document.getElementById(
-                            "quizExplanation"
-                        );
-
-
-                    if (explanation) {
-
-                        explanation.innerHTML = `
-
-                            <strong>
-                                ${
-                                    selected ===
-                                    question.correct
-                                        ? "✓ Resposta correta!"
-                                        : "✗ Resposta incorreta"
-                                }
-                            </strong>
-
-                            ${question.explanation}
-
-                            <span class="quiz-source">
-                                Fonte de referência:
-                                Smart Nation Singapore /
-                                Carta Brasileira para Cidades Inteligentes
-                            </span>
-
-                        `;
-
-                        explanation.classList.remove(
-                            "hidden"
-                        );
-
-                    }
-
-
-                    const nextButton =
-                        document.getElementById(
-                            "quizNext"
-                        );
-
-
-                    if (nextButton) {
-
-                        nextButton.classList.remove(
-                            "hidden"
-                        );
-
-
-                        nextButton.addEventListener(
-                            "click",
-                            nextQuestion
-                        );
-
-                    }
-
-                }
-            );
-
-        });
-
-    }
-
-
-    function nextQuestion() {
-
-        currentQuestion++;
-
-
-        if (
-            currentQuestion >=
-            questions.length
-        ) {
-
-            showQuizResult();
-
-            return;
-
-        }
-
-
-        renderQuestion();
-
-    }
-
-
-    function showQuizResult() {
+    if (!normalized) {
 
         container.innerHTML = "";
 
-        progressFill.style.width = "100%";
-
-        progressText.textContent =
-            "Quiz concluído";
-
-
-        if (!result) {
-            return;
-        }
-
-
-        const percentage =
-            Math.round(
-                (
-                    score /
-                    questions.length
-                ) * 100
-            );
-
-
-        let message;
-
-
-        if (percentage >= 90) {
-
-            message =
-                "Excelente! Você demonstra domínio dos principais conceitos de cidades inteligentes.";
-
-        } else if (percentage >= 70) {
-
-            message =
-                "Muito bom! Você já compreende boa parte dos conceitos e das soluções apresentadas.";
-
-        } else if (percentage >= 50) {
-
-            message =
-                "Bom começo! Vale revisar os conceitos de tecnologia, sustentabilidade e governança.";
-
-        } else {
-
-            message =
-                "Você pode melhorar. Use as seções de Singapura, Tecnologias e Fontes para revisar o conteúdo.";
-
-        }
-
-
-        result.innerHTML = `
-
-            <div class="quiz-result">
-
-                <h3>
-                    Resultado do quiz
-                </h3>
-
-                <div class="quiz-final-score">
-                    ${score}/${questions.length}
-                </div>
-
-                <p>
-                    ${percentage}% de acerto.
-                </p>
-
-                <p style="margin-top: 12px;">
-                    ${message}
-                </p>
-
-                <button
-                    class="primary-button"
-                    id="restartQuiz"
-                    style="margin-top: 25px;"
-                >
-                    Refazer quiz
-                </button>
-
-            </div>
-
-        `;
-
-
-        result.classList.remove(
-            "hidden"
+        container.classList.remove(
+            "visible",
+            "open"
         );
 
+        App.searchOpen =
+            false;
 
-        const restart =
-            document.getElementById(
-                "restartQuiz"
-            );
-
-
-        if (restart) {
-
-            restart.addEventListener(
-                "click",
-                () => {
-
-                    currentQuestion = 0;
-
-                    score = 0;
-
-                    result.classList.add(
-                        "hidden"
-                    );
-
-                    renderQuestion();
-
-                }
-            );
-
-        }
+        return;
 
     }
 
 
-    renderQuestion();
+    const terms =
+        normalized
+            .split(/\s+/)
+            .filter(Boolean);
 
-}
-
-
-/* =========================================================
-   11. ENQUETE
-   ========================================================= */
-
-function initializePoll() {
-
-    const buttons =
-        document.querySelectorAll(
-            "[data-poll]"
-        );
-
-    const result =
-        document.querySelector(
-            ".poll-result"
-        );
-
-
-    buttons.forEach(button => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                buttons.forEach(
-                    item => {
-
-                        item.disabled =
-                            true;
-
-                    }
-                );
-
-
-                const answer =
-                    button.dataset.poll;
-
-
-                if (result) {
-
-                    result.textContent =
-                        `Você respondeu: ${answer}`;
-
-                    result.style.position =
-                        "static";
-
-                    result.style.opacity =
-                        "1";
-
-                    result.style.pointerEvents =
-                        "auto";
-
-                }
-
-            }
-        );
-
-    });
-
-}
-
-
-/* =========================================================
-   12. PESQUISA
-   ========================================================= */
-
-function initializeSearch() {
-
-    const input =
-        document.getElementById(
-            "searchInput"
-        );
 
     const results =
-        document.getElementById(
-            "searchResults"
-        );
+        siteSearchItems.filter(item => {
 
-    const clear =
-        document.querySelector(
-            ".clear-search"
-        );
+            const content =
+                normalizeText(
+                    [
+                        item.title,
+                        item.description,
+                        item.keywords
+                    ].join(" ")
+                );
+
+            return terms.every(
+                term =>
+                    content.includes(term)
+            );
+
+        });
 
 
-    if (!input || !results) {
-        return;
+    if (!results.length) {
+
+        container.innerHTML = `
+            <div class="search-empty">
+                <strong>Nenhum resultado encontrado</strong>
+                <span>Tente buscar por tecnologia, Singapura, transporte ou quiz.</span>
+            </div>
+        `;
+
+    } else {
+
+        container.innerHTML =
+            results.map(
+                (item, index) => `
+
+                    <button
+                        type="button"
+                        class="search-result-item"
+                        data-search-tab="${safeText(item.tab)}"
+                    >
+
+                        <span
+                            class="search-result-number"
+                        >
+                            ${String(index + 1).padStart(2, "0")}
+                        </span>
+
+                        <span
+                            class="search-result-content"
+                        >
+
+                            <strong>
+                                ${safeText(item.title)}
+                            </strong>
+
+                            <small>
+                                ${safeText(item.description)}
+                            </small>
+
+                        </span>
+
+                        <span
+                            class="search-result-arrow"
+                            aria-hidden="true"
+                        >
+                            →
+                        </span>
+
+                    </button>
+
+                `
+            ).join("");
+
     }
 
 
-    const searchData = [
+    container.classList.add(
+        "visible",
+        "open"
+    );
+
+    App.searchOpen =
+        true;
+
+}
+
+
+function closeSearch() {
+
+    const container =
+        getSearchContainer();
+
+    if (!container) return;
+
+    container.classList.remove(
+        "visible",
+        "open"
+    );
+
+    App.searchOpen =
+        false;
+
+}
+
+
+function handleSearchResultClick(event) {
+
+    const result =
+        event.target.closest(
+            "[data-search-tab]"
+        );
+
+    if (!result) return;
+
+    const tab =
+        result.dataset.searchTab;
+
+    closeSearch();
+
+    const input =
+        getSearchInput();
+
+    if (input) {
+
+        input.value =
+            "";
+
+    }
+
+    openTab(tab);
+
+}
+
+
+/* =========================================================
+   07. PESQUISA TAMBÉM ENCONTRA TECNOLOGIAS
+========================================================= */
+
+function searchTechnology(query) {
+
+    const normalized =
+        normalizeText(query);
+
+    if (!normalized) return null;
+
+
+    const technologies = [
 
         {
-            title: "Mosaico cultural",
-
-            keywords:
-                "cultura singapura china india malai bairros",
-
-            tab: "singapura",
-
-            detail: "cultura"
+            id: "mobilidade",
+            terms: [
+                "mobilidade",
+                "transporte",
+                "metro",
+                "ônibus",
+                "onibus",
+                "trânsito",
+                "transito"
+            ]
         },
 
-
         {
-            title: "Singlish",
-
-            keywords:
-                "idioma inglês linguagem língua",
-
-            tab: "singapura",
-
-            detail: "singlish"
+            id: "iot",
+            terms: [
+                "iot",
+                "sensor",
+                "sensores",
+                "internet das coisas"
+            ]
         },
 
-
         {
-            title: "Hawker Centres",
-
-            keywords:
-                "comida gastronomia alimentação cultura",
-
-            tab: "singapura",
-
-            detail: "hawker"
+            id: "ia",
+            terms: [
+                "ia",
+                "inteligencia artificial",
+                "inteligência artificial",
+                "dados",
+                "analytics"
+            ]
         },
 
-
         {
-            title: "Economia avançada",
-
-            keywords:
-                "economia comércio indústria tecnologia",
-
-            tab: "singapura",
-
-            detail: "economia"
+            id: "smart-grid",
+            terms: [
+                "smart grid",
+                "energia",
+                "rede eletrica",
+                "rede elétrica"
+            ]
         },
 
-
         {
-            title: "Porto de Singapura",
-
-            keywords:
-                "porto logística navio comércio marítimo",
-
-            tab: "singapura",
-
-            detail: "porto"
+            id: "agua",
+            terms: [
+                "agua",
+                "água",
+                "ne water",
+                "newater"
+            ]
         },
 
-
         {
-            title: "Virtual Singapore",
-
-            keywords:
-                "gêmeo digital modelo 3d digital twin",
-
-            tab: "singapura",
-
-            detail: "virtual"
+            id: "residuos",
+            terms: [
+                "residuo",
+                "resíduos",
+                "residuos",
+                "lixo"
+            ]
         },
 
-
         {
-            title: "Agricultura vertical",
-
-            keywords:
-                "agricultura alimentos fazenda vertical",
-
-            tab: "singapura",
-
-            detail: "agricultura"
+            id: "5g",
+            terms: [
+                "5g",
+                "conectividade",
+                "rede"
+            ]
         },
 
-
         {
-            title: "Supertrees",
-
-            keywords:
-                "gardens bay árvores sustentabilidade",
-
-            tab: "singapura",
-
-            detail: "supertrees"
+            id: "digital-twin",
+            terms: [
+                "digital twin",
+                "gêmeo digital",
+                "gemeo digital",
+                "virtual singapore"
+            ]
         },
 
-
         {
-            title: "NEWater",
-
-            keywords:
-                "água reúso tratamento sustentabilidade",
-
-            tab: "singapura",
-
-            detail: "newater"
-        },
-
-
-        {
-            title: "Mobilidade inteligente",
-
-            keywords:
-                "metrô transporte trânsito ônibus mobilidade",
-
-            tab: "tecnologias",
-
-            tech: "mobilidade"
-        },
-
-
-        {
-            title: "Internet das Coisas",
-
-            keywords:
-                "iot sensores dispositivos conectados",
-
-            tab: "tecnologias",
-
-            tech: "iot"
-        },
-
-
-        {
-            title: "Inteligência Artificial e dados",
-
-            keywords:
-                "ia inteligência artificial dados algoritmos",
-
-            tab: "tecnologias",
-
-            tech: "ia"
-        },
-
-
-        {
-            title: "Smart Grid",
-
-            keywords:
-                "energia eletricidade rede inteligente",
-
-            tab: "tecnologias",
-
-            tech: "energia"
-        },
-
-
-        {
-            title: "NEWater e gestão hídrica",
-
-            keywords:
-                "água sensores consumo tratamento",
-
-            tab: "tecnologias",
-
-            tech: "agua"
-        },
-
-
-        {
-            title: "Digital Twin",
-
-            keywords:
-                "virtual singapore gêmeo digital simulação",
-
-            tab: "tecnologias",
-
-            tech: "digital"
-        },
-
-
-        {
-            title: "Governo digital",
-
-            keywords:
-                "governo serviços públicos singpass digital",
-
-            tab: "tecnologias",
-
-            tech: "governo"
-        },
-
-
-        {
-            title: "Mapa mental",
-
-            keywords:
-                "mapa conceitos cidade inteligente",
-
-            tab: "mapa"
-        },
-
-
-        {
-            title: "Quiz",
-
-            keywords:
-                "teste perguntas conhecimento",
-
-            tab: "quiz"
-        },
-
-
-        {
-            title: "Diagnóstico da cidade",
-
-            keywords:
-                "teste cidade avaliação diagnóstico planejamento",
-
-            tab: "teste-cidade"
-        },
-
-
-        {
-            title: "Fontes brasileiras",
-
-            keywords:
-                "brasil carta cidades inteligentes governo estudos",
-
-            tab: "fontes"
+            id: "governo-digital",
+            terms: [
+                "governo digital",
+                "governanca",
+                "governança",
+                "servicos digitais",
+                "serviços digitais"
+            ]
         }
 
     ];
 
 
-    function performSearch() {
+    for (
+        const technology
+        of technologies
+    ) {
 
-        const query =
-            input.value
-                .trim()
-                .toLowerCase();
+        if (
+            technology.terms.some(
+                term =>
+                    normalizeText(term) === normalized ||
+                    normalized.includes(
+                        normalizeText(term)
+                    )
+            )
+        ) {
 
-
-        results.innerHTML = "";
-
-
-        if (!query) {
-
-            results.classList.remove(
-                "visible",
-                "active"
-            );
-
-            return;
+            return technology.id;
 
         }
-
-
-        const matches =
-            searchData.filter(item => {
-
-                const searchable =
-                    `${item.title} ${item.keywords}`
-                        .toLowerCase();
-
-                return searchable.includes(
-                    query
-                );
-
-            });
-
-
-        if (!matches.length) {
-
-            results.innerHTML = `
-
-                <div class="search-result">
-
-                    <strong>
-                        Nenhum resultado encontrado
-                    </strong>
-
-                    <span>
-                        Tente outro termo.
-                    </span>
-
-                </div>
-
-            `;
-
-        } else {
-
-            matches
-                .slice(0, 8)
-                .forEach(item => {
-
-                    const element =
-                        document.createElement(
-                            "button"
-                        );
-
-
-                    element.className =
-                        "search-result";
-
-
-                    element.innerHTML = `
-
-                        <strong>
-                            ${item.title}
-                        </strong>
-
-                        <span>
-                            Abrir conteúdo →
-                        </span>
-
-                    `;
-
-
-                    element.addEventListener(
-                        "click",
-                        () => {
-
-                            if (
-                                typeof window.openTab ===
-                                "function"
-                            ) {
-
-                                window.openTab(
-                                    item.tab
-                                );
-
-                            }
-
-
-                            if (
-                                item.detail &&
-                                typeof window.openTab ===
-                                "function"
-                            ) {
-
-                                setTimeout(
-                                    () => {
-
-                                        const card =
-                                            document.querySelector(
-                                                `[data-detail="${item.detail}"]`
-                                            );
-
-                                        if (card) {
-
-                                            const link =
-                                                card.querySelector(
-                                                    ".card-link"
-                                                );
-
-                                            if (link) {
-
-                                                link.click();
-
-                                            }
-
-                                        }
-
-                                    },
-                                    300
-                                );
-
-                            }
-
-
-                            input.value = "";
-
-                            results.classList.remove(
-                                "visible",
-                                "active"
-                            );
-
-                        }
-                    );
-
-
-                    results.appendChild(
-                        element
-                    );
-
-                });
-
-        }
-
-
-        results.classList.add(
-            "visible",
-            "active"
-        );
 
     }
+
+    return null;
+
+}
+
+
+function openTechnologyFromSearch(
+    technologyId
+) {
+
+    if (!technologyId) return;
+
+    openTab("tecnologias");
+
+    setTimeout(() => {
+
+        const tab =
+            $(
+                `[data-technology="${technologyId}"]`
+            ) ||
+            $(
+                `[data-tech="${technologyId}"]`
+            );
+
+        if (tab) {
+
+            tab.click();
+
+            scrollToElement(
+                tab,
+                105
+            );
+
+        }
+
+    }, 250);
+
+}
+
+
+/* =========================================================
+   08. EVENTOS DE PESQUISA
+========================================================= */
+
+function setupSearch() {
+
+    const input =
+        getSearchInput();
+
+    if (!input) return;
 
 
     input.addEventListener(
         "input",
-        performSearch
+        () => {
+
+            const query =
+                input.value;
+
+            renderSearchResults(
+                query
+            );
+
+        }
     );
 
 
-    if (clear) {
+    input.addEventListener(
+        "focus",
+        () => {
 
-        clear.addEventListener(
-            "click",
-            () => {
+            if (
+                input.value.trim()
+            ) {
 
-                input.value = "";
-
-                results.innerHTML = "";
-
-                results.classList.remove(
-                    "visible",
-                    "active"
+                renderSearchResults(
+                    input.value
                 );
 
-                input.focus();
+            }
+
+        }
+    );
+
+
+    input.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Escape"
+            ) {
+
+                closeSearch();
+
+                input.blur();
+
+            }
+
+
+            if (
+                event.key === "Enter"
+            ) {
+
+                const technology =
+                    searchTechnology(
+                        input.value
+                    );
+
+                if (technology) {
+
+                    closeSearch();
+
+                    openTechnologyFromSearch(
+                        technology
+                    );
+
+                    return;
+
+                }
+
+
+                const first =
+                    $(".search-result-item");
+
+                if (first) {
+
+                    first.click();
+
+                }
+
+            }
+
+        }
+    );
+
+
+    document.addEventListener(
+        "click",
+        event => {
+
+            if (
+                !event.target.closest(
+                    ".header-search"
+                )
+            ) {
+
+                closeSearch();
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   09. SCROLL DA PÁGINA
+========================================================= */
+
+function setupScrollEffects() {
+
+    let ticking =
+        false;
+
+
+    function update() {
+
+        const header =
+            $(".site-header");
+
+        if (header) {
+
+            header.classList.toggle(
+                "scrolled",
+                window.scrollY > 30
+            );
+
+        }
+
+
+        const backToTop =
+            $(".back-to-top");
+
+        if (backToTop) {
+
+            backToTop.classList.toggle(
+                "visible",
+                window.scrollY > 500
+            );
+
+        }
+
+
+        ticking =
+            false;
+
+    }
+
+
+    window.addEventListener(
+        "scroll",
+        () => {
+
+            if (!ticking) {
+
+                requestAnimationFrame(
+                    update
+                );
+
+                ticking =
+                    true;
+
+            }
+
+        },
+        {
+            passive: true
+        }
+    );
+
+
+    update();
+
+}
+
+
+/* =========================================================
+   10. BOTÃO VOLTAR AO TOPO
+========================================================= */
+
+function setupBackToTop() {
+
+    const button =
+        $(".back-to-top");
+
+    if (!button) return;
+
+    button.addEventListener(
+        "click",
+        event => {
+
+            event.preventDefault();
+
+            window.scrollTo({
+                top: 0,
+                behavior: "smooth"
+            });
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   11. IMAGENS
+========================================================= */
+
+function setupImageFallbacks() {
+
+    $$("img").forEach(
+        image => {
+
+            image.addEventListener(
+                "error",
+                () => {
+
+                    image.parentElement
+                        ?.classList.add(
+                            "image-error"
+                        );
+
+                }
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   12. FECHAR MENU AO REDIMENSIONAR
+========================================================= */
+
+function setupResize() {
+
+    window.addEventListener(
+        "resize",
+        () => {
+
+            if (
+                window.innerWidth > 850 &&
+                App.mobileMenuOpen
+            ) {
+
+                closeMobileMenu();
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   13. ATALHOS DE TECLADO
+========================================================= */
+
+function setupKeyboardShortcuts() {
+
+    document.addEventListener(
+        "keydown",
+        event => {
+
+            const target =
+                event.target;
+
+            const typing =
+                target instanceof HTMLInputElement ||
+                target instanceof HTMLTextAreaElement ||
+                target instanceof HTMLSelectElement ||
+                target.isContentEditable;
+
+
+            if (
+                event.key === "Escape"
+            ) {
+
+                closeMobileMenu();
+                closeSearch();
+
+            }
+
+
+            if (
+                typing
+            ) return;
+
+
+            if (
+                event.key === "/"
+            ) {
+
+                event.preventDefault();
+
+                const input =
+                    getSearchInput();
+
+                if (input) {
+
+                    input.focus();
+
+                }
+
+            }
+
+
+            if (
+                event.key.toLowerCase() === "h"
+            ) {
+
+                openTab(
+                    "inicio"
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   14. INICIALIZAÇÃO DA NAVEGAÇÃO
+========================================================= */
+
+function setupNavigation() {
+
+    document.addEventListener(
+        "click",
+        handleTabClick
+    );
+
+
+    const menuToggle =
+        $(".menu-toggle");
+
+    if (menuToggle) {
+
+        menuToggle.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+                toggleMobileMenu();
 
             }
         );
@@ -2629,468 +1263,6258 @@ function initializeSearch() {
 
     document.addEventListener(
         "click",
-        event => {
-
-            if (
-                !results.contains(
-                    event.target
-                ) &&
-                !input.contains(
-                    event.target
-                )
-            ) {
-
-                results.classList.remove(
-                    "visible",
-                    "active"
-                );
-
-            }
-
-        }
+        handleSearchResultClick
     );
+
+
+    const initialSection =
+        $(".tab-section.active") ||
+        byId("inicio");
+
+
+    if (initialSection) {
+
+        openTab(
+            initialSection.id,
+            {
+                scroll: false
+            }
+        );
+
+    }
 
 }
 
 
 /* =========================================================
-   13. DIAGNÓSTICO DA CIDADE
+   15. EVENTO PRINCIPAL
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        setupNavigation();
+
+        setupSearch();
+
+        setupScrollEffects();
+
+        setupBackToTop();
+
+        setupImageFallbacks();
+
+        setupResize();
+
+        setupKeyboardShortcuts();
+
+
+        document.body.classList.add(
+            "smartcity-ready"
+        );
+
+
+        console.log(
+            "Smart City Singapura carregado."
+        );
+
+    }
+);
+
+
+/* =========================================================
+   16. EVENTOS PERSONALIZADOS
+========================================================= */
+
+document.addEventListener(
+    "smartcity:tabchange",
+    event => {
+
+        const tab =
+            event.detail?.tab;
+
+        if (!tab) return;
+
+
+        /*
+         * Pequena animação ao entrar
+         * em uma nova seção.
+         */
+
+        const section =
+            byId(tab);
+
+        if (!section) return;
+
+        section.classList.remove(
+            "fade-in"
+        );
+
+        void section.offsetWidth;
+
+        section.classList.add(
+            "fade-in"
+        );
+
+    }
+);
+
+
+/* =========================================================
+   17. API GLOBAL
+========================================================= */
+
+window.SmartCity = {
+
+    App,
+
+    openTab,
+
+    closeMobileMenu,
+
+    openMobileMenu,
+
+    toggleMobileMenu,
+
+    closeSearch,
+
+    normalizeText,
+
+    scrollToElement
+
+};
+
+
+/* =========================================================
+   FIM DA PARTE 1/5
+========================================================= */
+
+/* =========================================================
+   SCRIPT.JS — PARTE 2/5
+   SINGAPURA — CARDS, DETALHES E CONTEÚDO DINÂMICO
    ========================================================= */
 
-function initializeCityDiagnosis() {
+const singaporeTopics = {
 
-    const questionsContainer = document.getElementById("cityQuestions");
-    const startButton = document.getElementById("startCityTest");
-    const cityNameInput = document.getElementById("cityName");
-    const intro = document.getElementById("cityIntro");
-    const result = document.getElementById("cityResult");
+    "mosaico-cultural": {
+        title: "Mosaico cultural",
+        tag: "Cultura e sociedade",
+        image:
+            "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=1800&q=85",
 
-    if (!questionsContainer || !startButton || !cityNameInput || !intro || !result) {
-        return;
+        intro:
+            "Singapura é uma sociedade multicultural formada por diferentes comunidades que convivem em um território pequeno e altamente urbanizado.",
+
+        paragraphs: [
+            "A formação cultural de Singapura reúne principalmente comunidades de origem chinesa, malaia e indiana, além de diversos outros grupos que chegaram ao país ao longo de sua história.",
+            "Essa diversidade aparece na arquitetura, na culinária, nas festas, nos idiomas, nos bairros históricos e nas tradições religiosas. Chinatown, Little India e Kampong Glam são exemplos de áreas que preservam diferentes elementos dessa identidade.",
+            "O país possui quatro línguas oficiais: inglês, malaio, mandarim e tâmil. O malaio possui o status de língua nacional, enquanto o inglês ocupa papel central na administração, na educação e nos negócios.",
+            "Para uma cidade inteligente, a diversidade cultural também representa um desafio de planejamento: espaços públicos, serviços digitais e políticas urbanas precisam atender uma população diversa sem apagar suas identidades."
+        ],
+
+        facts: [
+            ["4", "línguas oficiais"],
+            ["3+", "grandes comunidades históricas"],
+            ["Chinatown", "bairro cultural"],
+            ["Little India", "patrimônio cultural"]
+        ],
+
+        impact:
+            "A diversidade é incorporada ao planejamento urbano por meio da preservação de bairros, espaços comunitários, gastronomia e patrimônio.",
+
+        source:
+            "Smart Nation Singapore e informações institucionais de Singapura"
+    },
+
+
+    "singlish": {
+        title: "Singlish",
+        tag: "Linguagem e identidade",
+        image:
+            "https://images.unsplash.com/photo-1496939376851-89342e90adcd?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "Singlish é uma variedade local do inglês associada à identidade cultural de Singapura.",
+
+        paragraphs: [
+            "Embora o inglês seja uma das línguas oficiais e tenha grande importância no sistema educacional e administrativo, o uso cotidiano do idioma em Singapura desenvolveu características próprias.",
+            "O Singlish recebeu influências de línguas presentes na sociedade singapuriana, incluindo malaio, hokkien, cantonês, tâmil e outras variedades linguísticas.",
+            "Expressões, ritmo, estrutura das frases e partículas utilizadas na comunicação informal fazem com que o Singlish seja facilmente reconhecido como uma característica cultural local.",
+            "O fenômeno mostra que uma cidade global não precisa abandonar sua identidade para se modernizar. Tecnologia, internacionalização e cultura local podem coexistir."
+        ],
+
+        facts: [
+            ["English", "língua de trabalho"],
+            ["Malay", "língua nacional"],
+            ["Mandarin", "língua oficial"],
+            ["Tamil", "língua oficial"]
+        ],
+
+        impact:
+            "O Singlish representa a dimensão humana da cidade inteligente: inovação urbana também precisa considerar identidade, comunicação e pertencimento.",
+
+        source:
+            "Government of Singapore / Smart Nation"
+    },
+
+
+    "hawker-centres": {
+        title: "Hawker Centres",
+        tag: "Alimentação e vida urbana",
+        image:
+            "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "Os Hawker Centres são grandes espaços públicos de alimentação que fazem parte da vida cotidiana de Singapura.",
+
+        paragraphs: [
+            "Em vez de restaurantes individuais espalhados somente por áreas comerciais, os Hawker Centres concentram dezenas de pequenos vendedores em um mesmo espaço.",
+            "Eles oferecem refeições acessíveis e uma enorme variedade de culinárias, tornando-se importantes pontos de encontro para diferentes grupos sociais.",
+            "Além do valor econômico, os centros hawker possuem enorme importância cultural. Em 2020, a cultura hawker de Singapura foi inscrita na Lista Representativa do Patrimônio Cultural Imaterial da Humanidade da UNESCO.",
+            "Do ponto de vista urbano, esses espaços mostram como infraestrutura pública pode cumprir simultaneamente funções econômicas, sociais e culturais."
+        ],
+
+        facts: [
+            ["UNESCO", "patrimônio cultural"],
+            ["Centenas", "de bancas"],
+            ["Acessível", "alimentação cotidiana"],
+            ["Público", "espaço de convivência"]
+        ],
+
+        impact:
+            "Os Hawker Centres ajudam a manter alimentação acessível, comércio local e convivência social dentro da cidade.",
+
+        source:
+            "UNESCO e Singapore Government"
+    },
+
+
+    "economia-avancada": {
+        title: "Economia avançada",
+        tag: "Economia",
+        image:
+            "https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "Singapura transformou sua posição geográfica em uma das principais vantagens competitivas de sua economia.",
+
+        paragraphs: [
+            "O país possui uma economia altamente integrada ao comércio internacional e concentra atividades de finanças, logística, tecnologia, indústria avançada, biomedicina e serviços.",
+            "A localização estratégica no Sudeste Asiático contribuiu para o desenvolvimento do país como centro de comércio e distribuição.",
+            "A infraestrutura urbana é planejada para sustentar essa economia: aeroporto, porto, transporte público, conectividade digital e áreas empresariais funcionam de forma integrada.",
+            "A estratégia de cidade inteligente não é tratada apenas como tecnologia. Ela está relacionada à capacidade de tornar a infraestrutura mais eficiente e criar condições para inovação econômica."
+        ],
+
+        facts: [
+            ["Finanças", "setor estratégico"],
+            ["Logística", "conexão global"],
+            ["Tecnologia", "economia digital"],
+            ["Biomedicina", "indústria avançada"]
+        ],
+
+        impact:
+            "Infraestrutura eficiente reduz custos, melhora conectividade e aumenta a capacidade da cidade de participar das redes econômicas globais.",
+
+        source:
+            "Smart Nation Singapore"
+    },
+
+
+    "porto-de-singapura": {
+        title: "Porto de Singapura",
+        tag: "Logística e infraestrutura",
+        image:
+            "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "O Porto de Singapura é um dos elementos centrais da posição estratégica do país no comércio marítimo mundial.",
+
+        paragraphs: [
+            "Singapura está localizada próxima a uma das principais rotas marítimas que conectam o Oceano Índico ao Pacífico. Essa posição ajudou o país a se tornar um importante centro de transbordo e logística.",
+            "O desenvolvimento do Tuas Port representa uma nova etapa dessa estratégia. O projeto utiliza automação e tecnologias digitais para aumentar a capacidade e a eficiência das operações portuárias.",
+            "Guindastes automatizados, sistemas de gerenciamento e integração de dados permitem coordenar uma quantidade enorme de movimentações em uma área relativamente compacta.",
+            "O porto mostra como uma cidade inteligente depende não apenas de aplicativos e sensores urbanos, mas também de grandes infraestruturas físicas conectadas digitalmente."
+        ],
+
+        facts: [
+            ["Tuas Port", "nova geração"],
+            ["Automação", "operações"],
+            ["Transbordo", "função global"],
+            ["Dados", "gestão logística"]
+        ],
+
+        impact:
+            "A digitalização da infraestrutura portuária aumenta eficiência operacional e fortalece a posição de Singapura nas cadeias globais de comércio.",
+
+        source:
+            "Port of Singapore / Government of Singapore"
+    },
+
+
+    "virtual-singapore": {
+        title: "Virtual Singapore",
+        tag: "Gêmeo digital",
+        image:
+            "https://images.unsplash.com/photo-1558655146-d09347e92766?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "Virtual Singapore é uma plataforma tridimensional que representa digitalmente o território urbano e permite estudar diferentes cenários.",
+
+        paragraphs: [
+            "Um modelo tridimensional detalhado da cidade pode ser utilizado para visualizar edifícios, infraestrutura, espaços públicos e diferentes características do ambiente urbano.",
+            "A ideia central é permitir que planejadores testem possibilidades antes de realizar alterações físicas na cidade.",
+            "É possível utilizar modelos digitais para estudar sombra, circulação, implantação de infraestrutura, uso do solo e diversos outros aspectos do planejamento.",
+            "Esse conceito é conhecido como gêmeo digital urbano: uma representação computacional do território que pode apoiar análise, simulação e tomada de decisões."
+        ],
+
+        facts: [
+            ["3D", "modelo urbano"],
+            ["Simulação", "de cenários"],
+            ["Planejamento", "baseado em dados"],
+            ["Digital Twin", "tecnologia-chave"]
+        ],
+
+        impact:
+            "O planejamento deixa de depender somente de mapas bidimensionais e passa a utilizar modelos digitais capazes de representar diferentes cenários urbanos.",
+
+        source:
+            "Singapore Smart Nation"
+    },
+
+
+    "plano-30-por-30": {
+        title: "Plano 30 by 30",
+        tag: "Segurança alimentar",
+        image:
+            "https://images.unsplash.com/photo-1492496913980-501348b61469?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "O programa 30 by 30 busca aumentar a capacidade de Singapura de produzir alimentos localmente.",
+
+        paragraphs: [
+            "Singapura possui uma disponibilidade extremamente limitada de terras agrícolas. Por isso, durante muito tempo o país dependeu fortemente das importações para abastecer sua população.",
+            "A estratégia 30 by 30 estabeleceu a meta de produzir localmente 30% das necessidades nutricionais do país até 2030.",
+            "A proposta está relacionada ao uso de tecnologias agrícolas mais eficientes, incluindo cultivo em ambientes controlados, automação e produção vertical.",
+            "O programa demonstra como segurança alimentar também pode ser considerada uma questão de planejamento urbano e resiliência nacional."
+        ],
+
+        facts: [
+            ["30%", "meta nutricional"],
+            ["2030", "ano-alvo"],
+            ["Tecnologia", "produção eficiente"],
+            ["Resiliência", "segurança alimentar"]
+        ],
+
+        impact:
+            "A produção local reduz parte da vulnerabilidade provocada por interrupções nas cadeias internacionais de abastecimento.",
+
+        source:
+            "Singapore Food Agency / Government of Singapore"
+    },
+
+
+    "agricultura-vertical": {
+        title: "Agricultura vertical",
+        tag: "Agro tecnologia",
+        image:
+            "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "A agricultura vertical utiliza estruturas empilhadas para produzir alimentos em ambientes urbanos com pouca disponibilidade de terreno.",
+
+        paragraphs: [
+            "Em uma cidade extremamente compacta como Singapura, reservar grandes áreas horizontais para agricultura é difícil.",
+            "A agricultura vertical resolve parte desse problema utilizando estruturas de vários níveis. Cultivos podem ser realizados em ambientes internos com controle de iluminação, temperatura, umidade e nutrientes.",
+            "Algumas fazendas utilizam hidroponia ou outros sistemas que reduzem a necessidade de solo convencional.",
+            "Apesar de oferecer vantagens, a agricultura indoor também exige energia, tecnologia e investimentos. Por isso, a eficiência do sistema depende do equilíbrio entre produtividade, consumo energético e custos."
+        ],
+
+        facts: [
+            ["Vertical", "uso eficiente do espaço"],
+            ["Indoor", "ambiente controlado"],
+            ["Hydroponics", "produção sem solo"],
+            ["30 by 30", "estratégia nacional"]
+        ],
+
+        impact:
+            "A tecnologia permite transformar espaços urbanos limitados em áreas produtivas.",
+
+        source:
+            "Singapore Food Agency"
+    },
+
+
+    "supertrees": {
+        title: "Supertrees",
+        tag: "Infraestrutura verde",
+        image:
+            "https://images.unsplash.com/photo-1519452575417-564c1401ecc0?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "Os Supertrees do Gardens by the Bay combinam paisagismo, arquitetura e tecnologias ambientais.",
+
+        paragraphs: [
+            "As estruturas gigantescas do Gardens by the Bay se tornaram um dos símbolos visuais mais conhecidos de Singapura.",
+            "Existem 18 Supertrees, com alturas que variam aproximadamente de 25 a 50 metros.",
+            "Algumas dessas estruturas possuem sistemas fotovoltaicos que ajudam a gerar energia. Também podem participar dos sistemas ambientais utilizados pelos jardins e conservatórios.",
+            "Além da função tecnológica, os Supertrees mostram como infraestrutura pode ser transformada em elemento paisagístico e turístico."
+        ],
+
+        facts: [
+            ["18", "Supertrees"],
+            ["25–50 m", "altura aproximada"],
+            ["Solar", "algumas estruturas"],
+            ["Gardens by the Bay", "localização"]
+        ],
+
+        impact:
+            "A integração entre engenharia, vegetação e arquitetura cria infraestrutura que também funciona como espaço público e símbolo urbano.",
+
+        source:
+            "Gardens by the Bay / Singapore Government"
+    },
+
+
+    "newater": {
+        title: "NEWater",
+        tag: "Gestão da água",
+        image:
+            "https://images.unsplash.com/photo-1504610926078-a1611febcad3?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "NEWater é o nome dado à água altamente purificada produzida a partir do tratamento avançado de água recuperada.",
+
+        paragraphs: [
+            "A escassez de recursos hídricos sempre foi um dos grandes desafios estratégicos de Singapura.",
+            "Para aumentar sua segurança hídrica, o país desenvolveu sistemas avançados de tratamento e reutilização da água.",
+            "O processo do NEWater utiliza diferentes etapas de tratamento, incluindo tecnologias de membranas e desinfecção ultravioleta.",
+            "Grande parte dessa água é utilizada por setores industriais. Uma parcela também pode ser introduzida nos reservatórios para posterior tratamento dentro do sistema nacional de abastecimento."
+        ],
+
+        facts: [
+            ["NEWater", "água recuperada"],
+            ["Membranas", "filtragem avançada"],
+            ["UV", "desinfecção"],
+            ["Resiliência", "segurança hídrica"]
+        ],
+
+        impact:
+            "A reutilização reduz a dependência de fontes externas e transforma águas residuais em parte estratégica do sistema hídrico.",
+
+        source:
+            "PUB Singapore — National Water Agency"
+    },
+
+
+    "transporte": {
+        title: "Transporte inteligente",
+        tag: "Mobilidade urbana",
+        image:
+            "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "O sistema de mobilidade de Singapura combina transporte público, planejamento urbano, gestão da demanda e tecnologias digitais.",
+
+        paragraphs: [
+            "O transporte público é formado principalmente pela rede ferroviária MRT e pelos ônibus, conectando diferentes regiões da cidade.",
+            "O planejamento urbano procura aproximar moradia, trabalho, comércio e serviços, reduzindo a necessidade de deslocamentos excessivamente longos.",
+            "Singapura também utiliza sistemas eletrônicos para administrar o tráfego e controlar a demanda pelo uso das vias.",
+            "A mobilidade inteligente não significa apenas instalar sensores. Ela depende de planejamento territorial, transporte coletivo eficiente e políticas que incentivem o uso racional do espaço viário."
+        ],
+
+        facts: [
+            ["MRT", "rede ferroviária"],
+            ["Ônibus", "transporte público"],
+            ["Dados", "gestão do tráfego"],
+            ["Integração", "planejamento urbano"]
+        ],
+
+        impact:
+            "A combinação de infraestrutura e gestão reduz a dependência absoluta do automóvel e aumenta a eficiência dos deslocamentos.",
+
+        source:
+            "Land Transport Authority — Singapore"
+    },
+
+
+    "governanca": {
+        title: "Governança digital",
+        tag: "Governo e tecnologia",
+        image:
+            "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "A governança digital é um dos pilares da estratégia Smart Nation de Singapura.",
+
+        paragraphs: [
+            "O governo utiliza plataformas digitais para oferecer serviços públicos, compartilhar informações e facilitar a interação entre cidadãos e Estado.",
+            "A estratégia Smart Nation procura utilizar tecnologia e dados para melhorar a forma como serviços públicos são planejados e entregues.",
+            "Dados urbanos também podem apoiar decisões relacionadas a transporte, saúde, planejamento territorial, infraestrutura e segurança.",
+            "Ao mesmo tempo, uma cidade cada vez mais digital precisa lidar com questões como privacidade, segurança cibernética, inclusão digital e confiança da população."
+        ],
+
+        facts: [
+            ["Smart Nation", "estratégia nacional"],
+            ["Dados", "apoio às decisões"],
+            ["Serviços", "digitais"],
+            ["Cibersegurança", "prioridade"]
+        ],
+
+        impact:
+            "A digitalização pode tornar serviços públicos mais acessíveis e eficientes, mas exige governança responsável dos dados.",
+
+        source:
+            "Smart Nation Singapore"
+    },
+
+
+    "chiclete": {
+        title: "O caso do chiclete",
+        tag: "Política urbana",
+        image:
+            "https://images.unsplash.com/photo-1528712306091-ed0763094c98?auto=format&fit=crop&w=1800&q=85",
+
+        intro:
+            "As regras de Singapura sobre chicletes são um exemplo conhecido de como políticas públicas podem interferir diretamente na manutenção dos espaços urbanos.",
+
+        paragraphs: [
+            "No início da década de 1990, Singapura introduziu restrições severas relacionadas à importação e venda de chicletes convencionais.",
+            "A medida ficou internacionalmente conhecida como uma 'proibição do chiclete', embora a situação seja mais específica do que essa expressão sugere.",
+            "Existem exceções relacionadas a determinados chicletes terapêuticos ou odontológicos, que podem ser disponibilizados sob regras específicas.",
+            "O episódio é frequentemente utilizado para discutir a relação entre comportamento individual, limpeza urbana, custos de manutenção e políticas públicas."
+        ],
+
+        facts: [
+            ["1992", "restrições introduzidas"],
+            ["Importação", "fortemente controlada"],
+            ["Exceções", "uso terapêutico"],
+            ["Limpeza", "questão urbana"]
+        ],
+
+        impact:
+            "O caso demonstra que uma cidade inteligente também envolve políticas comportamentais e mecanismos de manutenção do espaço público.",
+
+        source:
+            "Singapore Customs / Government of Singapore"
     }
 
-    const cityQuestions = [
-        { dimension: "Mobilidade", question: "Sua cidade possui transporte público frequente e acessível?" },
-        { dimension: "Mobilidade", question: "Existem ciclovias, calçadas adequadas ou outras alternativas ao automóvel?" },
-        { dimension: "Sustentabilidade", question: "A cidade possui áreas verdes preservadas ou ampliadas?" },
-        { dimension: "Sustentabilidade", question: "Existem políticas para reduzir emissões e impactos ambientais?" },
-        { dimension: "Água", question: "Existe monitoramento eficiente do consumo e das perdas de água?" },
-        { dimension: "Água", question: "Há iniciativas de reúso, aproveitamento de água da chuva ou tratamento avançado?" },
-        { dimension: "Energia", question: "Prédios públicos e infraestrutura utilizam medidas de eficiência energética?" },
-        { dimension: "Energia", question: "A cidade possui iniciativas relacionadas a energia renovável ou redes inteligentes?" },
-        { dimension: "Transformação digital", question: "Os cidadãos conseguem acessar serviços públicos importantes pela internet?" },
-        { dimension: "Transformação digital", question: "A prefeitura utiliza dados e sistemas digitais para acompanhar problemas urbanos?" },
-        { dimension: "Governança", question: "Existem canais digitais ou presenciais para participação da população?" },
-        { dimension: "Governança", question: "Dados e informações públicas relevantes são disponibilizados de forma transparente?" },
-        { dimension: "Inclusão e serviços", question: "Serviços urbanos são planejados considerando pessoas com deficiência e diferentes necessidades?" },
-        { dimension: "Inclusão e serviços", question: "A cidade possui políticas para reduzir desigualdades no acesso aos serviços?" },
-        { dimension: "Resiliência", question: "Existem planos para enfrentar enchentes, secas, ondas de calor ou outros riscos?" },
-        { dimension: "Resiliência", question: "A infraestrutura urbana possui mecanismos de monitoramento e resposta a emergências?" },
-        { dimension: "Inovação", question: "Existem programas para estimular inovação, pesquisa ou empreendedorismo local?" },
-        { dimension: "Inovação", question: "A cidade realiza projetos-piloto ou experimentos antes de ampliar novas soluções?" }
+};
+
+
+/* =========================================================
+   ALIASES
+   Permitem que diferentes nomes usados no HTML
+   encontrem o mesmo conteúdo.
+   ========================================================= */
+
+const singaporeAliases = {
+
+    "mosaico": "mosaico-cultural",
+    "cultura": "mosaico-cultural",
+    "mosaico-cultural": "mosaico-cultural",
+
+    "singlish": "singlish",
+
+    "hawker": "hawker-centres",
+    "hawker-centres": "hawker-centres",
+    "hawker-centers": "hawker-centres",
+
+    "economia": "economia-avancada",
+    "economia-avancada": "economia-avancada",
+
+    "porto": "porto-de-singapura",
+    "porto-singapura": "porto-de-singapura",
+    "porto-de-singapura": "porto-de-singapura",
+
+    "virtual-singapore": "virtual-singapore",
+    "virtual": "virtual-singapore",
+    "digital-twin": "virtual-singapore",
+
+    "30-by-30": "plano-30-por-30",
+    "30by30": "plano-30-por-30",
+    "plano-30-por-30": "plano-30-por-30",
+
+    "agricultura": "agricultura-vertical",
+    "agricultura-vertical": "agricultura-vertical",
+
+    "supertrees": "supertrees",
+    "supertree": "supertrees",
+
+    "newater": "newater",
+    "agua": "newater",
+
+    "transporte": "transporte",
+    "mobilidade": "transporte",
+
+    "governanca": "governanca",
+    "governança": "governanca",
+
+    "chiclete": "chiclete"
+};
+
+
+/* =========================================================
+   NORMALIZAÇÃO DOS TÓPICOS
+   ========================================================= */
+
+function normalizeSingaporeTopic(value) {
+
+    if (!value) {
+        return null;
+    }
+
+    const normalized = String(value)
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/_/g, "-");
+
+    if (singaporeTopics[normalized]) {
+        return normalized;
+    }
+
+    if (singaporeAliases[normalized]) {
+        return singaporeAliases[normalized];
+    }
+
+    return null;
+}
+
+
+/* =========================================================
+   LOCALIZAÇÃO DOS ELEMENTOS DE DETALHE
+   ========================================================= */
+
+function getSingaporeDetailSection() {
+
+    const selectors = [
+        "#detalhes-singapura",
+        "#singapore-details",
+        "#singaporeDetail",
+        ".singapore-detail",
+        ".singapore-details",
+        "[data-singapore-detail-container]"
     ];
 
-    const answers = new Array(cityQuestions.length).fill(null);
-    let finished = false;
+    for (const selector of selectors) {
 
-    const dimensions = {};
-    cityQuestions.forEach((item, index) => {
-        if (!dimensions[item.dimension]) dimensions[item.dimension] = [];
-        dimensions[item.dimension].push(index);
-    });
+        const element = document.querySelector(selector);
 
-    const escapeHtml = value => String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-
-    function updateCityProgress() {
-        const answered = answers.filter(answer => answer !== null).length;
-        const percentage = Math.round((answered / cityQuestions.length) * 100);
-        const progress = document.getElementById("cityTestProgress");
-        const text = document.getElementById("cityTestProgressText");
-        const submit = document.getElementById("submitCityTest");
-
-        if (progress) progress.style.width = `${percentage}%`;
-        if (text) text.textContent = `${answered} de ${cityQuestions.length} respondidas`;
-        if (submit) {
-            submit.disabled = answered !== cityQuestions.length;
-            submit.classList.toggle("ready", answered === cityQuestions.length);
+        if (element) {
+            return element;
         }
     }
 
-    function renderCityQuestions() {
-        questionsContainer.innerHTML = `
-            <div class="city-progress-wrap">
-                <div class="city-progress-head">
-                    <span>PROGRESSO DO DIAGNÓSTICO</span>
-                    <strong id="cityTestProgressText">0 de ${cityQuestions.length} respondidas</strong>
-                </div>
-                <div class="progress-bar city-progress-bar">
-                    <div id="cityTestProgress" class="progress-fill"></div>
-                </div>
-            </div>
-        `;
+    return null;
+}
 
-        cityQuestions.forEach((question, index) => {
-            const article = document.createElement("article");
-            article.className = "city-question";
-            article.dataset.index = index;
-            article.innerHTML = `
-                <div class="city-question-top">
-                    <span class="question-number">${String(index + 1).padStart(2, "0")}</span>
-                    <span class="category">${escapeHtml(question.dimension)}</span>
-                    <span class="answered-label">✓ Respondida</span>
+
+function getSingaporeDetailTitle() {
+
+    const section = getSingaporeDetailSection();
+
+    if (!section) {
+        return null;
+    }
+
+    const selectors = [
+        "[data-detail-title]",
+        "#singaporeDetailTitle",
+        ".detail-header-content h1",
+        ".detail-header h1",
+        ".singapore-detail-title",
+        "h1"
+    ];
+
+    for (const selector of selectors) {
+
+        const element = section.querySelector(selector);
+
+        if (element) {
+            return element;
+        }
+    }
+
+    return null;
+}
+
+
+function getSingaporeDetailTag() {
+
+    const section = getSingaporeDetailSection();
+
+    if (!section) {
+        return null;
+    }
+
+    const selectors = [
+        "[data-detail-tag]",
+        "#singaporeDetailTag",
+        ".detail-header-content .badge",
+        ".detail-header-content .eyebrow",
+        ".singapore-detail-tag"
+    ];
+
+    for (const selector of selectors) {
+
+        const element = section.querySelector(selector);
+
+        if (element) {
+            return element;
+        }
+    }
+
+    return null;
+}
+
+
+function getSingaporeDetailImage() {
+
+    const section = getSingaporeDetailSection();
+
+    if (!section) {
+        return null;
+    }
+
+    const selectors = [
+        "[data-detail-image]",
+        "#singaporeDetailImage",
+        ".detail-header-image",
+        ".singapore-detail-image",
+        ".detail-image"
+    ];
+
+    for (const selector of selectors) {
+
+        const element = section.querySelector(selector);
+
+        if (element) {
+            return element;
+        }
+    }
+
+    return null;
+}
+
+
+function getSingaporeDetailContent() {
+
+    const section = getSingaporeDetailSection();
+
+    if (!section) {
+        return null;
+    }
+
+    const selectors = [
+        "[data-detail-content]",
+        "#singaporeDetailContent",
+        ".detail-article",
+        ".singapore-detail-content",
+        ".detail-content"
+    ];
+
+    for (const selector of selectors) {
+
+        const element = section.querySelector(selector);
+
+        if (element) {
+            return element;
+        }
+    }
+
+    return null;
+}
+
+
+/* =========================================================
+   CRIAÇÃO DO CONTEÚDO DOS DETALHES
+   ========================================================= */
+
+function buildSingaporeDetailHTML(topic) {
+
+    if (!topic) {
+        return "";
+    }
+
+    const factsHTML = topic.facts
+        .map(fact => `
+            <div class="detail-fact">
+                <strong>${safeText(fact[0])}</strong>
+                <span>${safeText(fact[1])}</span>
+            </div>
+        `)
+        .join("");
+
+    const paragraphsHTML = topic.paragraphs
+        .map(paragraph => `
+            <p>${safeText(paragraph)}</p>
+        `)
+        .join("");
+
+    return `
+        <div class="singapore-detail-introduction">
+            <p class="detail-lead">
+                ${safeText(topic.intro)}
+            </p>
+        </div>
+
+        <div class="detail-facts-grid">
+            ${factsHTML}
+        </div>
+
+        <div class="detail-text">
+            ${paragraphsHTML}
+        </div>
+
+        <div class="detail-impact">
+            <span class="detail-impact-label">
+                IMPACTO URBANO
+            </span>
+
+            <p>
+                ${safeText(topic.impact)}
+            </p>
+        </div>
+
+        <div class="detail-source">
+            <span>Fonte relacionada</span>
+            <strong>${safeText(topic.source)}</strong>
+        </div>
+    `;
+}
+
+
+/* =========================================================
+   RENDERIZAÇÃO DE UM DETALHE
+   ========================================================= */
+
+function renderSingaporeDetail(topicId, options = {}) {
+
+    const normalizedId = normalizeSingaporeTopic(topicId);
+
+    if (!normalizedId) {
+        console.warn(
+            "Tópico de Singapura não encontrado:",
+            topicId
+        );
+        return false;
+    }
+
+    const topic = singaporeTopics[normalizedId];
+
+    if (!topic) {
+        return false;
+    }
+
+    const section = getSingaporeDetailSection();
+
+    if (!section) {
+
+        console.warn(
+            "Seção de detalhes de Singapura não encontrada."
+        );
+
+        return false;
+    }
+
+    const title = getSingaporeDetailTitle();
+    const tag = getSingaporeDetailTag();
+    const image = getSingaporeDetailImage();
+    const content = getSingaporeDetailContent();
+
+    if (title) {
+        title.textContent = topic.title;
+    }
+
+    if (tag) {
+        tag.textContent = topic.tag;
+    }
+
+    if (image) {
+
+        if (image.tagName === "IMG") {
+
+            image.src = topic.image;
+            image.alt = topic.title;
+
+        } else {
+
+            image.style.backgroundImage =
+                `linear-gradient(
+                    to bottom,
+                    rgba(0,0,0,.05),
+                    rgba(0,0,0,.65)
+                ), url("${topic.image}")`;
+
+            image.setAttribute(
+                "aria-label",
+                topic.title
+            );
+        }
+    }
+
+    if (content) {
+        content.innerHTML =
+            buildSingaporeDetailHTML(topic);
+    }
+
+    section.dataset.activeTopic = normalizedId;
+
+    document.body.dataset.singaporeTopic =
+        normalizedId;
+
+    /*
+     * Atualiza o hash sem recarregar a página.
+     */
+    try {
+
+        const newHash =
+            `#singapura-${normalizedId}`;
+
+        history.replaceState(
+            null,
+            "",
+            newHash
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Não foi possível atualizar o hash.",
+            error
+        );
+    }
+
+    /*
+     * Marca o card correspondente como ativo.
+     */
+    $$(
+        "[data-singapore], [data-singapore-topic]"
+    ).forEach(card => {
+
+        const cardTopic =
+            normalizeSingaporeTopic(
+                card.dataset.singapore ||
+                card.dataset.singaporeTopic
+            );
+
+        card.classList.toggle(
+            "is-active",
+            cardTopic === normalizedId
+        );
+    });
+
+    /*
+     * Animação de entrada.
+     */
+    section.classList.remove(
+        "detail-enter"
+    );
+
+    void section.offsetWidth;
+
+    section.classList.add(
+        "detail-enter"
+    );
+
+    /*
+     * Exibe a seção.
+     */
+    section.hidden = false;
+
+    section.classList.add(
+        "is-visible"
+    );
+
+    /*
+     * Se o usuário clicou em um card,
+     * leva suavemente para o detalhe.
+     */
+    if (options.scroll !== false) {
+
+        setTimeout(() => {
+
+            scrollToElement(
+                section,
+                88
+            );
+
+        }, 60);
+    }
+
+    /*
+     * Evento personalizado.
+     */
+    document.dispatchEvent(
+        new CustomEvent(
+            "singaporedetailchange",
+            {
+                detail: {
+                    id: normalizedId,
+                    topic
+                }
+            }
+        )
+    );
+
+    return true;
+}
+
+
+/* =========================================================
+   ABRIR DETALHE A PARTIR DE UM CARD
+   ========================================================= */
+
+function openSingaporeDetail(topicId) {
+
+    const normalizedId =
+        normalizeSingaporeTopic(topicId);
+
+    if (!normalizedId) {
+        return;
+    }
+
+    /*
+     * Primeiro garantimos que estamos na aba
+     * principal de Singapura.
+     */
+    const detailSection =
+        getSingaporeDetailSection();
+
+    if (
+        detailSection &&
+        detailSection.classList.contains("tab-section")
+    ) {
+
+        if (
+            typeof window.openTab === "function"
+        ) {
+
+            window.openTab(
+                "detalhes-singapura",
+                {
+                    scroll: false
+                }
+            );
+
+        }
+
+    } else {
+
+        /*
+         * Se o detalhe estiver dentro da própria
+         * seção de Singapura, abre Singapura.
+         */
+        const singaporeTab =
+            document.querySelector(
+                "#singapura.tab-section"
+            );
+
+        if (
+            singaporeTab &&
+            typeof window.openTab === "function"
+        ) {
+
+            window.openTab(
+                "singapura",
+                {
+                    scroll: false
+                }
+            );
+        }
+    }
+
+    renderSingaporeDetail(
+        normalizedId,
+        {
+            scroll: true
+        }
+    );
+}
+
+
+/* =========================================================
+   DESCOBERTA AUTOMÁTICA DO TÓPICO DO CARD
+   ========================================================= */
+
+function getTopicFromSingaporeCard(card) {
+
+    if (!card) {
+        return null;
+    }
+
+    const values = [
+        card.dataset.singapore,
+        card.dataset.singaporeTopic,
+        card.dataset.topic,
+        card.dataset.detail,
+        card.dataset.detailTopic,
+        card.dataset.detailTarget,
+        card.getAttribute("data-id")
+    ];
+
+    for (const value of values) {
+
+        const topic =
+            normalizeSingaporeTopic(value);
+
+        if (topic) {
+            return topic;
+        }
+    }
+
+    /*
+     * Alguns cards podem possuir um link interno
+     * com o ID do detalhe.
+     */
+    const link =
+        card.querySelector(
+            "a[href*='singapura'], a[href*='detalhes']"
+        );
+
+    if (link) {
+
+        const href =
+            link.getAttribute("href") || "";
+
+        const clean =
+            href
+                .replace("#", "")
+                .replace(
+                    "singapura-",
+                    ""
+                )
+                .replace(
+                    "detalhes-",
+                    ""
+                );
+
+        const topic =
+            normalizeSingaporeTopic(clean);
+
+        if (topic) {
+            return topic;
+        }
+    }
+
+    /*
+     * Última tentativa:
+     * utiliza o texto do título do card.
+     */
+    const heading =
+        card.querySelector(
+            "h2, h3, h4, .card-title, .singapore-card-title"
+        );
+
+    if (heading) {
+
+        const text =
+            normalizeText(
+                heading.textContent
+            );
+
+        for (const [alias, topicId]
+            of Object.entries(singaporeAliases)) {
+
+            const normalizedAlias =
+                normalizeText(alias)
+                    .replace(/\s+/g, "-");
+
+            if (
+                text.includes(
+                    normalizedAlias.replace(
+                        /-/g,
+                        " "
+                    )
+                )
+            ) {
+
+                return topicId;
+            }
+        }
+    }
+
+    return null;
+}
+
+
+/* =========================================================
+   EVENTOS DOS CARDS DE SINGAPURA
+   ========================================================= */
+
+function initializeSingaporeCards() {
+
+    const cards =
+        $$(
+            "[data-singapore], " +
+            "[data-singapore-topic], " +
+            ".singapore-card, " +
+            ".singapore-topic-card"
+        );
+
+    if (!cards.length) {
+        return;
+    }
+
+    cards.forEach(card => {
+
+        const topic =
+            getTopicFromSingaporeCard(card);
+
+        if (!topic) {
+            return;
+        }
+
+        card.dataset.singaporeResolved =
+            topic;
+
+        /*
+         * Acessibilidade.
+         */
+        if (
+            card.tagName !== "BUTTON" &&
+            card.tagName !== "A"
+        ) {
+
+            card.setAttribute(
+                "role",
+                "button"
+            );
+
+            card.setAttribute(
+                "tabindex",
+                "0"
+            );
+        }
+
+        card.setAttribute(
+            "aria-label",
+            `Ver detalhes sobre ${singaporeTopics[topic].title}`
+        );
+
+        /*
+         * Evita registrar vários listeners
+         * caso a função seja chamada novamente.
+         */
+        if (
+            card.dataset.singaporeInitialized ===
+            "true"
+        ) {
+            return;
+        }
+
+        card.dataset.singaporeInitialized =
+            "true";
+
+        card.addEventListener(
+            "click",
+            event => {
+
+                /*
+                 * Se o clique ocorreu em um link
+                 * externo, não interfere.
+                 */
+                const clickedLink =
+                    event.target.closest("a");
+
+                if (
+                    clickedLink &&
+                    clickedLink.getAttribute("href") &&
+                    !clickedLink
+                        .getAttribute("href")
+                        .startsWith("#")
+                ) {
+                    return;
+                }
+
+                event.preventDefault();
+
+                openSingaporeDetail(topic);
+            }
+        );
+
+        card.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                ) {
+
+                    event.preventDefault();
+
+                    openSingaporeDetail(
+                        topic
+                    );
+                }
+            }
+        );
+    });
+}
+
+
+/* =========================================================
+   BOTÃO "VOLTAR PARA SINGAPURA"
+   ========================================================= */
+
+function initializeSingaporeBackButtons() {
+
+    const buttons =
+        $$(
+            "[data-back-singapore], " +
+            ".detail-back, " +
+            ".singapore-detail-back"
+        );
+
+    buttons.forEach(button => {
+
+        if (
+            button.dataset.backInitialized ===
+            "true"
+        ) {
+            return;
+        }
+
+        button.dataset.backInitialized =
+            "true";
+
+        button.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+                const detail =
+                    getSingaporeDetailSection();
+
+                if (detail) {
+
+                    detail.classList.remove(
+                        "is-visible"
+                    );
+                }
+
+                if (
+                    typeof window.openTab ===
+                    "function"
+                ) {
+
+                    window.openTab(
+                        "singapura",
+                        {
+                            scroll: true
+                        }
+                    );
+                }
+            }
+        );
+    });
+}
+
+
+/* =========================================================
+   BOTÕES "EXPLORAR" DOS CARDS
+   ========================================================= */
+
+function initializeSingaporeExploreButtons() {
+
+    const buttons =
+        $$(
+            "[data-explore-singapore], " +
+            "[data-singapore-open]"
+        );
+
+    buttons.forEach(button => {
+
+        if (
+            button.dataset.exploreInitialized ===
+            "true"
+        ) {
+            return;
+        }
+
+        button.dataset.exploreInitialized =
+            "true";
+
+        button.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const topic =
+                    button.dataset.exploreSingapore ||
+                    button.dataset.singaporeOpen ||
+                    button.dataset.topic;
+
+                openSingaporeDetail(
+                    topic
+                );
+            }
+        );
+    });
+}
+
+
+/* =========================================================
+   IMAGENS DOS CARDS
+   ========================================================= */
+
+function initializeSingaporeCardImages() {
+
+    const cards =
+        $$(
+            "[data-singapore], " +
+            "[data-singapore-topic], " +
+            ".singapore-card, " +
+            ".singapore-topic-card"
+        );
+
+    cards.forEach(card => {
+
+        const topic =
+            getTopicFromSingaporeCard(card);
+
+        if (!topic) {
+            return;
+        }
+
+        const data =
+            singaporeTopics[topic];
+
+        if (!data || !data.image) {
+            return;
+        }
+
+        /*
+         * Primeiro tenta encontrar uma imagem real.
+         */
+        const image =
+            card.querySelector(
+                "img"
+            );
+
+        if (image) {
+
+            /*
+             * Só substitui se a imagem
+             * estiver vazia ou quebrada.
+             */
+            if (
+                !image.getAttribute("src") ||
+                image.getAttribute("src") === "#"
+            ) {
+
+                image.src =
+                    data.image;
+            }
+
+            if (
+                !image.getAttribute("alt")
+            ) {
+
+                image.alt =
+                    data.title;
+            }
+
+            return;
+        }
+
+        /*
+         * Caso o card utilize uma div
+         * como área visual.
+         */
+        const visual =
+            card.querySelector(
+                ".card-image, " +
+                ".singapore-card-image, " +
+                ".card-visual, " +
+                ".image"
+            );
+
+        if (visual) {
+
+            const current =
+                visual.style.backgroundImage;
+
+            if (
+                !current ||
+                current === "none"
+            ) {
+
+                visual.style.backgroundImage =
+                    `linear-gradient(
+                        to bottom,
+                        rgba(0,0,0,.02),
+                        rgba(0,0,0,.6)
+                    ), url("${data.image}")`;
+            }
+        }
+    });
+}
+
+
+/* =========================================================
+   DETALHE VIA HASH
+   ========================================================= */
+
+function handleSingaporeHash() {
+
+    const hash =
+        window.location.hash;
+
+    if (!hash) {
+        return;
+    }
+
+    if (
+        !hash.startsWith(
+            "#singapura-"
+        )
+    ) {
+        return;
+    }
+
+    const topic =
+        hash
+            .replace(
+                "#singapura-",
+                ""
+            );
+
+    const normalized =
+        normalizeSingaporeTopic(
+            topic
+        );
+
+    if (!normalized) {
+        return;
+    }
+
+    setTimeout(() => {
+
+        openSingaporeDetail(
+            normalized
+        );
+
+    }, 150);
+}
+
+
+/* =========================================================
+   EVENTO DO HASH
+   ========================================================= */
+
+window.addEventListener(
+    "hashchange",
+    handleSingaporeHash
+);
+
+
+/* =========================================================
+   API PÚBLICA DE SINGAPURA
+   ========================================================= */
+
+window.Singapore = {
+
+    topics: singaporeTopics,
+
+    aliases: singaporeAliases,
+
+    open: openSingaporeDetail,
+
+    render: renderSingaporeDetail,
+
+    normalize: normalizeSingaporeTopic,
+
+    getTopic: topicId => {
+
+        const id =
+            normalizeSingaporeTopic(
+                topicId
+            );
+
+        return id
+            ? singaporeTopics[id]
+            : null;
+    }
+};
+
+
+/* =========================================================
+   INICIALIZAÇÃO
+   ========================================================= */
+
+function initializeSingaporeModule() {
+
+    initializeSingaporeCards();
+
+    initializeSingaporeBackButtons();
+
+    initializeSingaporeExploreButtons();
+
+    initializeSingaporeCardImages();
+
+    handleSingaporeHash();
+}
+
+
+/*
+ * Inicializa imediatamente caso o documento
+ * já esteja carregado.
+ */
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeSingaporeModule,
+        {
+            once: true
+        }
+    );
+
+} else {
+
+    initializeSingaporeModule();
+}
+
+
+/* =========================================================
+   EVENTO PARA REINICIALIZAÇÃO
+   ========================================================= */
+
+document.addEventListener(
+    "smartcity:content-updated",
+    () => {
+
+        initializeSingaporeCards();
+
+        initializeSingaporeBackButtons();
+
+        initializeSingaporeExploreButtons();
+
+        initializeSingaporeCardImages();
+    }
+);
+
+
+/* =========================================================
+   EFEITO VISUAL DOS CARDS
+   ========================================================= */
+
+function initializeSingaporeCardHover() {
+
+    const cards =
+        $$(
+            ".singapore-card, " +
+            ".singapore-topic-card"
+        );
+
+    cards.forEach(card => {
+
+        if (
+            card.dataset.hoverInitialized ===
+            "true"
+        ) {
+            return;
+        }
+
+        card.dataset.hoverInitialized =
+            "true";
+
+        card.addEventListener(
+            "mouseenter",
+            () => {
+
+                card.classList.add(
+                    "is-hovered"
+                );
+            }
+        );
+
+        card.addEventListener(
+            "mouseleave",
+            () => {
+
+                card.classList.remove(
+                    "is-hovered"
+                );
+            }
+        );
+    });
+}
+
+initializeSingaporeCardHover();
+
+
+/* =========================================================
+   PRELOAD DAS IMAGENS PRINCIPAIS
+   ========================================================= */
+
+function preloadSingaporeImages() {
+
+    Object.values(
+        singaporeTopics
+    ).forEach(topic => {
+
+        if (!topic.image) {
+            return;
+        }
+
+        const image =
+            new Image();
+
+        image.src =
+            topic.image;
+    });
+}
+
+preloadSingaporeImages();
+
+
+/* =========================================================
+   CONTADOR DOS TÓPICOS DISPONÍVEIS
+   ========================================================= */
+
+function updateSingaporeTopicCount() {
+
+    const counters =
+        $$(
+            "[data-singapore-topic-count]"
+        );
+
+    const total =
+        Object.keys(
+            singaporeTopics
+        ).length;
+
+    counters.forEach(counter => {
+
+        counter.textContent =
+            total;
+    });
+}
+
+updateSingaporeTopicCount();
+
+
+/* =========================================================
+   ACESSIBILIDADE DO DETALHE
+   ========================================================= */
+
+function improveSingaporeDetailAccessibility() {
+
+    const section =
+        getSingaporeDetailSection();
+
+    if (!section) {
+        return;
+    }
+
+    if (
+        !section.hasAttribute(
+            "aria-live"
+        )
+    ) {
+
+        section.setAttribute(
+            "aria-live",
+            "polite"
+        );
+    }
+
+    if (
+        !section.hasAttribute(
+            "tabindex"
+        )
+    ) {
+
+        section.setAttribute(
+            "tabindex",
+            "-1"
+        );
+    }
+}
+
+improveSingaporeDetailAccessibility();
+
+
+/* =========================================================
+   FINAL DA PARTE 2
+   ========================================================= */
+
+/* =========================================================
+   SCRIPT.JS — PARTE 3/5
+   TECNOLOGIAS + MAPA MENTAL
+   ========================================================= */
+
+
+/* =========================================================
+   BANCO DE DADOS DAS TECNOLOGIAS
+   ========================================================= */
+
+const technologyData = {
+
+    mobilidade: {
+        title: "Mobilidade inteligente",
+        category: "Mobilidade",
+
+        image:
+            "https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Utilização de dados, sensores, transporte público e sistemas digitais para tornar os deslocamentos urbanos mais eficientes, seguros e sustentáveis.",
+
+        paragraphs: [
+            "A mobilidade inteligente procura compreender como pessoas e veículos se deslocam pela cidade e utilizar essas informações para melhorar o sistema de transporte.",
+            "Sensores, câmeras, GPS, aplicativos e sistemas de controle podem fornecer informações sobre trânsito, demanda e condições das vias.",
+            "O objetivo não é simplesmente aumentar a velocidade dos automóveis. Uma política de mobilidade inteligente também prioriza transporte coletivo, caminhada, bicicleta, acessibilidade e integração entre diferentes modos.",
+            "Em Singapura, planejamento urbano e transporte são tratados de maneira integrada, mostrando que tecnologia funciona melhor quando está associada a políticas públicas."
+        ],
+
+        examples: [
+            "MRT e ônibus integrados",
+            "Sistemas de gestão de tráfego",
+            "Informações em tempo real",
+            "Semáforos inteligentes",
+            "Aplicativos de mobilidade"
+        ],
+
+        benefits: [
+            "Menos congestionamentos",
+            "Maior previsibilidade das viagens",
+            "Melhor uso da infraestrutura",
+            "Redução de emissões"
+        ]
+    },
+
+
+    iot: {
+        title: "IoT e sensores",
+        category: "Internet das Coisas",
+
+        image:
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "A Internet das Coisas conecta objetos físicos à internet para coletar, transmitir e utilizar dados.",
+
+        paragraphs: [
+            "Em uma cidade inteligente, sensores podem ser instalados em ruas, edifícios, sistemas de água, iluminação e equipamentos públicos.",
+            "Esses dispositivos conseguem registrar informações continuamente, permitindo que gestores tenham uma visão mais detalhada do funcionamento da cidade.",
+            "Um sensor pode, por exemplo, detectar nível de água, temperatura, qualidade do ar, ocupação de uma vaga ou funcionamento de um equipamento.",
+            "Os dados coletados precisam ser tratados e analisados. Um sensor isolado não torna uma cidade inteligente: o valor está na capacidade de transformar dados em decisões e ações."
+        ],
+
+        examples: [
+            "Sensores ambientais",
+            "Iluminação conectada",
+            "Monitoramento de água",
+            "Estacionamento inteligente",
+            "Sensores de ocupação"
+        ],
+
+        benefits: [
+            "Monitoramento contínuo",
+            "Detecção rápida de problemas",
+            "Manutenção preventiva",
+            "Dados urbanos em tempo real"
+        ]
+    },
+
+
+    ia: {
+        title: "IA e dados urbanos",
+        category: "Inteligência Artificial",
+
+        image:
+            "https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Inteligência Artificial e análise de dados podem ajudar governos e organizações a identificar padrões e apoiar decisões urbanas.",
+
+        paragraphs: [
+            "Cidades produzem enormes quantidades de dados diariamente. Informações de transporte, energia, água, clima e serviços públicos podem revelar padrões importantes.",
+            "Algoritmos de Inteligência Artificial podem ajudar a identificar esses padrões e produzir previsões ou classificações.",
+            "Um exemplo seria analisar históricos de trânsito para prever regiões com maior probabilidade de congestionamento.",
+            "Entretanto, sistemas de IA precisam de dados de qualidade, transparência, segurança e supervisão humana. Uma decisão automatizada pode reproduzir problemas existentes nos dados utilizados para treiná-la."
+        ],
+
+        examples: [
+            "Previsão de congestionamentos",
+            "Análise de consumo energético",
+            "Detecção de anomalias",
+            "Previsão de demanda",
+            "Análise de imagens"
+        ],
+
+        benefits: [
+            "Decisões mais informadas",
+            "Identificação de padrões",
+            "Automação de tarefas",
+            "Uso estratégico dos dados"
+        ]
+    },
+
+
+    smartgrid: {
+        title: "Smart Grid",
+        category: "Energia",
+
+        image:
+            "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Smart Grid é uma rede elétrica que utiliza comunicação e dados para monitorar e gerenciar melhor a produção, distribuição e consumo de energia.",
+
+        paragraphs: [
+            "A rede elétrica tradicional possui fluxos relativamente previsíveis. Com a expansão das fontes renováveis e de novos consumidores, como veículos elétricos, a gestão se torna mais complexa.",
+            "Uma Smart Grid utiliza sensores, medidores inteligentes e sistemas de comunicação para obter informações sobre a rede.",
+            "Essas informações podem ajudar a identificar falhas, equilibrar oferta e demanda e melhorar a eficiência.",
+            "A tecnologia também pode facilitar a integração de geração distribuída, armazenamento de energia e fontes renováveis."
+        ],
+
+        examples: [
+            "Medidores inteligentes",
+            "Monitoramento da rede",
+            "Integração solar",
+            "Armazenamento de energia",
+            "Gestão da demanda"
+        ],
+
+        benefits: [
+            "Maior eficiência",
+            "Detecção de falhas",
+            "Integração de renováveis",
+            "Melhor gerenciamento energético"
+        ]
+    },
+
+
+    agua: {
+        title: "Água inteligente",
+        category: "Recursos hídricos",
+
+        image:
+            "https://images.unsplash.com/photo-1548839140-29a749e1cf4d?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Tecnologias digitais podem monitorar redes de abastecimento, detectar perdas e melhorar o gerenciamento dos recursos hídricos.",
+
+        paragraphs: [
+            "A água é um dos recursos mais importantes para o funcionamento das cidades e, em muitas regiões, um dos mais vulneráveis.",
+            "Sensores podem monitorar pressão, vazão, qualidade da água e outros parâmetros ao longo da rede.",
+            "A análise desses dados pode ajudar a localizar vazamentos e identificar alterações anormais no sistema.",
+            "Singapura é um caso especialmente relevante porque desenvolveu uma estratégia integrada de segurança hídrica que inclui captação, reutilização, dessalinização e gestão da demanda."
+        ],
+
+        examples: [
+            "Detecção de vazamentos",
+            "Monitoramento de qualidade",
+            "Medição inteligente",
+            "Reutilização de água",
+            "Gestão de reservatórios"
+        ],
+
+        benefits: [
+            "Redução de perdas",
+            "Maior segurança hídrica",
+            "Monitoramento contínuo",
+            "Uso mais eficiente"
+        ]
+    },
+
+
+    residuos: {
+        title: "Gestão inteligente de resíduos",
+        category: "Resíduos",
+
+        image:
+            "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Tecnologias digitais podem melhorar a coleta, separação, monitoramento e destinação dos resíduos urbanos.",
+
+        paragraphs: [
+            "A produção de resíduos é diretamente relacionada ao tamanho da população, aos hábitos de consumo e à atividade econômica.",
+            "Sensores podem indicar o nível de preenchimento de contêineres, permitindo otimizar rotas de coleta.",
+            "Sistemas digitais também podem acompanhar veículos, analisar volumes coletados e identificar pontos com maior geração de resíduos.",
+            "A tecnologia, entretanto, deve estar associada à redução, reutilização, reciclagem e educação ambiental."
+        ],
+
+        examples: [
+            "Lixeiras com sensores",
+            "Rotas de coleta otimizadas",
+            "Rastreamento de veículos",
+            "Centrais de triagem",
+            "Monitoramento de reciclagem"
+        ],
+
+        benefits: [
+            "Coleta mais eficiente",
+            "Menor desperdício de combustível",
+            "Melhor planejamento",
+            "Redução de custos operacionais"
+        ]
+    },
+
+
+    conectividade: {
+        title: "5G e conectividade",
+        category: "Conectividade",
+
+        image:
+            "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Redes de comunicação de alta capacidade fornecem infraestrutura para conectar pessoas, sensores, veículos e serviços.",
+
+        paragraphs: [
+            "Uma cidade inteligente depende de comunicação confiável para transmitir informações entre dispositivos e sistemas.",
+            "O 5G pode oferecer maior capacidade e menor latência em determinadas aplicações, embora a necessidade real dependa do caso de uso.",
+            "Conectividade urbana também envolve fibra óptica, Wi-Fi público, redes móveis e infraestrutura de data centers.",
+            "Uma estratégia de cidade inteligente deve considerar inclusão digital. Uma infraestrutura tecnologicamente avançada não é suficiente se parte da população não consegue acessá-la."
+        ],
+
+        examples: [
+            "Redes 5G",
+            "Fibra óptica",
+            "IoT conectada",
+            "Wi-Fi público",
+            "Comunicação veículo-infraestrutura"
+        ],
+
+        benefits: [
+            "Maior conectividade",
+            "Comunicação rápida",
+            "Suporte à IoT",
+            "Novos serviços digitais"
+        ]
+    },
+
+
+    digitaltwin: {
+        title: "Digital Twin",
+        category: "Gêmeo digital",
+
+        image:
+            "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "Um Digital Twin urbano é uma representação digital de elementos físicos da cidade que pode ser utilizada para análise e simulação.",
+
+        paragraphs: [
+            "O conceito de gêmeo digital vai além de simplesmente criar um modelo 3D bonito. O objetivo é conectar a representação digital a informações sobre o sistema físico.",
+            "Em um ambiente urbano, isso pode significar associar edifícios, ruas, redes de infraestrutura e outros elementos a dados.",
+            "Modelos desse tipo podem ajudar a avaliar cenários antes da implementação de determinadas intervenções.",
+            "Virtual Singapore é um dos exemplos mais conhecidos de aplicação de modelos digitais tridimensionais para apoiar o planejamento urbano."
+        ],
+
+        examples: [
+            "Modelagem 3D",
+            "Simulação urbana",
+            "Planejamento territorial",
+            "Análise de infraestrutura",
+            "Visualização de cenários"
+        ],
+
+        benefits: [
+            "Testes antes da obra",
+            "Melhor visualização",
+            "Análise de cenários",
+            "Apoio ao planejamento"
+        ]
+    },
+
+
+    governo: {
+        title: "Governo digital",
+        category: "Governança",
+
+        image:
+            "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=1600&q=85",
+
+        description:
+            "O governo digital utiliza tecnologias para melhorar serviços públicos, processos administrativos, participação e tomada de decisão.",
+
+        paragraphs: [
+            "A transformação digital do governo não significa simplesmente colocar formulários na internet.",
+            "O objetivo é redesenhar processos para torná-los mais acessíveis, eficientes e integrados.",
+            "Dados podem apoiar políticas públicas e ajudar gestores a compreender problemas urbanos com maior precisão.",
+            "Ao mesmo tempo, governo digital exige proteção de dados, segurança cibernética, acessibilidade e mecanismos de inclusão."
+        ],
+
+        examples: [
+            "Serviços públicos digitais",
+            "Identidade digital",
+            "Portais integrados",
+            "Dados abertos",
+            "Participação digital"
+        ],
+
+        benefits: [
+            "Maior acessibilidade",
+            "Redução de burocracia",
+            "Serviços mais rápidos",
+            "Melhor gestão pública"
+        ]
+    }
+
+};
+
+
+/* =========================================================
+   ALIASES DAS TECNOLOGIAS
+   ========================================================= */
+
+const technologyAliases = {
+
+    "mobilidade": "mobilidade",
+    "transporte": "mobilidade",
+
+    "iot": "iot",
+    "sensores": "iot",
+    "iot-e-sensores": "iot",
+
+    "ia": "ia",
+    "dados": "ia",
+    "ia-e-dados": "ia",
+
+    "smart-grid": "smartgrid",
+    "smartgrid": "smartgrid",
+    "energia": "smartgrid",
+
+    "agua": "agua",
+    "água": "agua",
+
+    "residuos": "residuos",
+    "resíduos": "residuos",
+
+    "5g": "conectividade",
+    "conectividade": "conectividade",
+
+    "digital-twin": "digitaltwin",
+    "digitaltwin": "digitaltwin",
+    "gêmeo-digital": "digitaltwin",
+
+    "governo": "governo",
+    "governo-digital": "governo"
+};
+
+
+/* =========================================================
+   NORMALIZAÇÃO
+   ========================================================= */
+
+function normalizeTechnology(value) {
+
+    if (!value) {
+        return null;
+    }
+
+    const normalized =
+        String(value)
+            .trim()
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, "-")
+            .replace(/_/g, "-");
+
+    if (technologyData[normalized]) {
+        return normalized;
+    }
+
+    return technologyAliases[normalized] || null;
+}
+
+
+/* =========================================================
+   CONSTRÓI O PAINEL DA TECNOLOGIA
+   ========================================================= */
+
+function buildTechnologyPanelHTML(data) {
+
+    if (!data) {
+        return "";
+    }
+
+    const examples =
+        data.examples
+            .map(item => `
+                <li>
+                    <span class="technology-check">✓</span>
+                    ${safeText(item)}
+                </li>
+            `)
+            .join("");
+
+    const benefits =
+        data.benefits
+            .map(item => `
+                <li>
+                    <span class="technology-check">+</span>
+                    ${safeText(item)}
+                </li>
+            `)
+            .join("");
+
+    const paragraphs =
+        data.paragraphs
+            .map(paragraph => `
+                <p>${safeText(paragraph)}</p>
+            `)
+            .join("");
+
+    return `
+        <div class="technology-panel-inner">
+
+            <div class="technology-panel-image">
+                <img
+                    src="${data.image}"
+                    alt="${safeText(data.title)}"
+                    loading="lazy"
+                >
+            </div>
+
+            <div class="technology-panel-content">
+
+                <span class="technology-panel-category">
+                    ${safeText(data.category)}
+                </span>
+
+                <h3>
+                    ${safeText(data.title)}
+                </h3>
+
+                <p class="technology-panel-lead">
+                    ${safeText(data.description)}
+                </p>
+
+                <div class="technology-panel-text">
+                    ${paragraphs}
                 </div>
-                <h3>${escapeHtml(question.question)}</h3>
-                <div class="city-options">
-                    <button type="button" data-answer="true">✓ Sim</button>
-                    <button type="button" data-answer="false">✕ Não</button>
+
+                <div class="technology-columns">
+
+                    <div class="technology-list-block">
+                        <h4>Aplicações</h4>
+
+                        <ul>
+                            ${examples}
+                        </ul>
+                    </div>
+
+                    <div class="technology-list-block">
+                        <h4>Benefícios</h4>
+
+                        <ul>
+                            ${benefits}
+                        </ul>
+                    </div>
+
                 </div>
-            `;
-            questionsContainer.appendChild(article);
+
+            </div>
+
+        </div>
+    `;
+}
+
+
+/* =========================================================
+   ENCONTRA O PAINEL ATUAL
+   ========================================================= */
+
+function findTechnologyPanel() {
+
+    const selectors = [
+        "[data-technology-panel]",
+        "[data-panel-content]",
+        ".technology-panel-content-area",
+        "#technologyPanelContent",
+        ".technology-display",
+        ".technology-panels"
+    ];
+
+    for (const selector of selectors) {
+
+        const element =
+            document.querySelector(selector);
+
+        if (element) {
+            return element;
+        }
+    }
+
+    return null;
+}
+
+
+/* =========================================================
+   RENDERIZA TECNOLOGIA
+   ========================================================= */
+
+function renderTechnology(
+    technologyId,
+    options = {}
+) {
+
+    const id =
+        normalizeTechnology(
+            technologyId
+        );
+
+    if (!id) {
+        console.warn(
+            "Tecnologia não encontrada:",
+            technologyId
+        );
+        return false;
+    }
+
+    const data =
+        technologyData[id];
+
+    /*
+     * Primeiro tenta utilizar painéis existentes
+     * no HTML.
+     */
+    const existingPanels =
+        $$(
+            "[data-panel], " +
+            "[data-technology-panel], " +
+            ".technology-panel"
+        );
+
+    let matchedPanel = null;
+
+    existingPanels.forEach(panel => {
+
+        const panelId =
+            normalizeTechnology(
+                panel.dataset.panel ||
+                panel.dataset.technologyPanel ||
+                panel.dataset.techPanel
+            );
+
+        if (
+            panelId === id
+        ) {
+            matchedPanel = panel;
+        }
+    });
+
+    /*
+     * Se existir painel correspondente,
+     * ativa somente ele.
+     */
+    if (matchedPanel) {
+
+        existingPanels.forEach(panel => {
+
+            panel.classList.toggle(
+                "active",
+                panel === matchedPanel
+            );
+
+            panel.classList.toggle(
+                "is-active",
+                panel === matchedPanel
+            );
+
+            panel.hidden =
+                panel !== matchedPanel;
         });
 
-        const submit = document.createElement("button");
-        submit.type = "button";
-        submit.id = "submitCityTest";
-        submit.className = "primary-button city-submit";
-        submit.disabled = true;
-        submit.textContent = "Responda todas as perguntas";
-        questionsContainer.appendChild(submit);
+        /*
+         * Se o painel estiver vazio,
+         * cria o conteúdo.
+         */
+        if (
+            !matchedPanel.innerHTML.trim() ||
+            matchedPanel.dataset.dynamic ===
+            "true"
+        ) {
 
-        questionsContainer.querySelectorAll(".city-question").forEach((card, index) => {
-            card.querySelectorAll(".city-options button").forEach(button => {
-                button.addEventListener("click", () => {
-                    answers[index] = button.dataset.answer === "true";
-                    card.classList.add("answered");
-                    card.querySelectorAll(".city-options button").forEach(item => {
-                        item.classList.remove("selected-yes", "selected-no");
-                    });
-                    button.classList.add(answers[index] ? "selected-yes" : "selected-no");
-                    updateCityProgress();
+            matchedPanel.innerHTML =
+                buildTechnologyPanelHTML(
+                    data
+                );
 
-                    const answered = answers.filter(answer => answer !== null).length;
-                    if (answered === cityQuestions.length) {
-                        submit.disabled = false;
-                        submit.classList.add("ready");
-                        submit.textContent = "Gerar diagnóstico →";
-                        setTimeout(calculateDiagnosis, 450);
+            matchedPanel.dataset.dynamic =
+                "true";
+        }
+    }
+
+    /*
+     * Caso exista uma área única de renderização.
+     */
+    const panelContainer =
+        findTechnologyPanel();
+
+    if (
+        panelContainer &&
+        !matchedPanel
+    ) {
+
+        panelContainer.innerHTML =
+            buildTechnologyPanelHTML(
+                data
+            );
+    }
+
+    /*
+     * Atualiza as abas.
+     */
+    $$(
+        "[data-technology], " +
+        "[data-tech], " +
+        ".technology-tab"
+    ).forEach(tab => {
+
+        const tabId =
+            normalizeTechnology(
+                tab.dataset.technology ||
+                tab.dataset.tech ||
+                tab.dataset.topic
+            );
+
+        const active =
+            tabId === id;
+
+        tab.classList.toggle(
+            "active",
+            active
+        );
+
+        tab.classList.toggle(
+            "is-active",
+            active
+        );
+
+        tab.setAttribute(
+            "aria-selected",
+            active ? "true" : "false"
+        );
+
+        if (
+            tab.hasAttribute("tabindex")
+        ) {
+
+            tab.tabIndex =
+                active ? 0 : -1;
+        }
+    });
+
+    /*
+     * Marca o sistema inteiro.
+     */
+    const technologyArea =
+        document.querySelector(
+            "#tecnologias, " +
+            ".technologies-section, " +
+            "[data-technologies]"
+        );
+
+    if (technologyArea) {
+
+        technologyArea.dataset.activeTechnology =
+            id;
+    }
+
+    /*
+     * Evento personalizado.
+     */
+    document.dispatchEvent(
+        new CustomEvent(
+            "technologychange",
+            {
+                detail: {
+                    id,
+                    data
+                }
+            }
+        )
+    );
+
+    if (options.scroll) {
+
+        const target =
+            matchedPanel ||
+            panelContainer;
+
+        if (target) {
+
+            setTimeout(() => {
+
+                scrollToElement(
+                    target,
+                    100
+                );
+
+            }, 50);
+        }
+    }
+
+    return true;
+}
+
+
+/* =========================================================
+   INICIALIZAÇÃO DAS ABAS DE TECNOLOGIA
+   ========================================================= */
+
+function initializeTechnologyTabs() {
+
+    const tabs =
+        $$(
+            "[data-technology], " +
+            "[data-tech], " +
+            ".technology-tab"
+        );
+
+    if (!tabs.length) {
+        return;
+    }
+
+    tabs.forEach(tab => {
+
+        const id =
+            normalizeTechnology(
+                tab.dataset.technology ||
+                tab.dataset.tech ||
+                tab.dataset.topic
+            );
+
+        if (!id) {
+            return;
+        }
+
+        tab.dataset.resolvedTechnology =
+            id;
+
+        /*
+         * Acessibilidade.
+         */
+        tab.setAttribute(
+            "role",
+            "tab"
+        );
+
+        if (
+            !tab.hasAttribute(
+                "aria-selected"
+            )
+        ) {
+
+            tab.setAttribute(
+                "aria-selected",
+                "false"
+            );
+        }
+
+        if (
+            tab.dataset.technologyInitialized ===
+            "true"
+        ) {
+            return;
+        }
+
+        tab.dataset.technologyInitialized =
+            "true";
+
+        tab.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+                renderTechnology(
+                    id,
+                    {
+                        scroll: false
                     }
+                );
+            }
+        );
+
+        tab.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                ) {
+
+                    event.preventDefault();
+
+                    renderTechnology(
+                        id,
+                        {
+                            scroll: false
+                        }
+                    );
+                }
+
+                /*
+                 * Navegação horizontal
+                 * usando as setas.
+                 */
+                if (
+                    event.key === "ArrowRight" ||
+                    event.key === "ArrowDown"
+                ) {
+
+                    event.preventDefault();
+
+                    const currentIndex =
+                        tabs.indexOf(tab);
+
+                    const nextIndex =
+                        (
+                            currentIndex + 1
+                        ) % tabs.length;
+
+                    tabs[nextIndex].focus();
+                }
+
+                if (
+                    event.key === "ArrowLeft" ||
+                    event.key === "ArrowUp"
+                ) {
+
+                    event.preventDefault();
+
+                    const currentIndex =
+                        tabs.indexOf(tab);
+
+                    const previousIndex =
+                        (
+                            currentIndex - 1 +
+                            tabs.length
+                        ) % tabs.length;
+
+                    tabs[previousIndex].focus();
+                }
+            }
+        );
+    });
+
+    /*
+     * Seleciona a primeira tecnologia
+     * inicialmente.
+     */
+    const active =
+        tabs.find(tab =>
+            tab.classList.contains("active") ||
+            tab.classList.contains("is-active")
+        );
+
+    const first =
+        active || tabs[0];
+
+    if (first) {
+
+        const id =
+            normalizeTechnology(
+                first.dataset.technology ||
+                first.dataset.tech ||
+                first.dataset.topic
+            );
+
+        if (id) {
+
+            renderTechnology(
+                id,
+                {
+                    scroll: false
+                }
+            );
+        }
+    }
+}
+
+
+/* =========================================================
+   API DAS TECNOLOGIAS
+   ========================================================= */
+
+window.Technologies = {
+
+    data: technologyData,
+
+    aliases: technologyAliases,
+
+    normalize: normalizeTechnology,
+
+    open: renderTechnology,
+
+    get: id => {
+
+        const normalized =
+            normalizeTechnology(id);
+
+        return normalized
+            ? technologyData[normalized]
+            : null;
+    }
+};
+
+
+/* =========================================================
+   MAPA MENTAL — DADOS
+   ========================================================= */
+
+const mindMapData = {
+
+    planejamento: {
+        title: "Planejamento urbano",
+
+        icon: "⌂",
+
+        description:
+            "Define objetivos, prioridades e estratégias para o desenvolvimento da cidade.",
+
+        points: [
+            "Uso do solo",
+            "Infraestrutura",
+            "Resiliência",
+            "Expansão urbana"
+        ]
+    },
+
+    tecnologia: {
+        title: "Tecnologia",
+
+        icon: "⌘",
+
+        description:
+            "Ferramentas digitais utilizadas para monitorar, conectar e otimizar sistemas urbanos.",
+
+        points: [
+            "IoT",
+            "5G",
+            "Inteligência Artificial",
+            "Automação"
+        ]
+    },
+
+    mobilidade: {
+        title: "Mobilidade",
+
+        icon: "⇄",
+
+        description:
+            "Busca deslocamentos mais eficientes, acessíveis e sustentáveis.",
+
+        points: [
+            "Transporte público",
+            "Metrô",
+            "Bicicletas",
+            "Gestão do tráfego"
+        ]
+    },
+
+    sustentabilidade: {
+        title: "Sustentabilidade",
+
+        icon: "♧",
+
+        description:
+            "Integra crescimento urbano com preservação ambiental e uso eficiente dos recursos.",
+
+        points: [
+            "Energia limpa",
+            "Áreas verdes",
+            "Resíduos",
+            "Emissões"
+        ]
+    },
+
+    agua: {
+        title: "Água",
+
+        icon: "≈",
+
+        description:
+            "Gestão eficiente e resiliente dos recursos hídricos urbanos.",
+
+        points: [
+            "Reúso",
+            "Abastecimento",
+            "Monitoramento",
+            "Drenagem"
+        ]
+    },
+
+    dados: {
+        title: "Dados urbanos",
+
+        icon: "◉",
+
+        description:
+            "Dados são a base para compreender o funcionamento da cidade e apoiar decisões.",
+
+        points: [
+            "Sensores",
+            "Indicadores",
+            "Big Data",
+            "Análise"
+        ]
+    },
+
+    governanca: {
+        title: "Governança",
+
+        icon: "◇",
+
+        description:
+            "Coordena políticas públicas, instituições, participação social e gestão de dados.",
+
+        points: [
+            "Governo digital",
+            "Transparência",
+            "Participação",
+            "Segurança"
+        ]
+    },
+
+    pessoas: {
+        title: "Pessoas",
+
+        icon: "●",
+
+        description:
+            "A cidade inteligente deve melhorar a qualidade de vida e colocar as pessoas no centro.",
+
+        points: [
+            "Inclusão",
+            "Acessibilidade",
+            "Educação",
+            "Qualidade de vida"
+        ]
+    }
+
+};
+
+
+/* =========================================================
+   MAPA MENTAL — CONEXÕES
+   ========================================================= */
+
+const mindMapConnections = [
+
+    ["planejamento", "tecnologia"],
+    ["tecnologia", "mobilidade"],
+    ["mobilidade", "sustentabilidade"],
+    ["sustentabilidade", "agua"],
+    ["agua", "dados"],
+    ["dados", "governanca"],
+    ["governanca", "pessoas"],
+    ["pessoas", "planejamento"],
+
+    /*
+     * Conexões com o núcleo.
+     */
+    ["center", "planejamento"],
+    ["center", "tecnologia"],
+    ["center", "mobilidade"],
+    ["center", "sustentabilidade"],
+    ["center", "agua"],
+    ["center", "dados"],
+    ["center", "governanca"],
+    ["center", "pessoas"]
+];
+
+
+/* =========================================================
+   MAPA MENTAL — LOCALIZAÇÃO DOS NÓS
+   ========================================================= */
+
+const mindMapPositions = {
+
+    planejamento: {
+        x: 50,
+        y: 9
+    },
+
+    tecnologia: {
+        x: 79,
+        y: 18
+    },
+
+    mobilidade: {
+        x: 91,
+        y: 50
+    },
+
+    sustentabilidade: {
+        x: 79,
+        y: 82
+    },
+
+    agua: {
+        x: 50,
+        y: 91
+    },
+
+    dados: {
+        x: 21,
+        y: 82
+    },
+
+    governanca: {
+        x: 9,
+        y: 50
+    },
+
+    pessoas: {
+        x: 21,
+        y: 18
+    }
+
+};
+
+
+/* =========================================================
+   ENCONTRA O NÓ DO MAPA
+   ========================================================= */
+
+function getMindNodeElement(id) {
+
+    const selectors = [
+        `[data-mind="${id}"]`,
+        `[data-mind-node="${id}"]`,
+        `#mind-${id}`,
+        `.mind-node-${id}`
+    ];
+
+    for (const selector of selectors) {
+
+        const node =
+            document.querySelector(selector);
+
+        if (node) {
+            return node;
+        }
+    }
+
+    return null;
+}
+
+
+/* =========================================================
+   CONTEÚDO DO PAINEL DO MAPA
+   ========================================================= */
+
+function renderMindMapInfo(id) {
+
+    const data =
+        mindMapData[id];
+
+    if (!data) {
+        return;
+    }
+
+    const selectors = [
+        "[data-mind-info]",
+        "#mindMapInfo",
+        ".mind-map-info",
+        ".mind-info-panel"
+    ];
+
+    let panel = null;
+
+    for (const selector of selectors) {
+
+        panel =
+            document.querySelector(
+                selector
+            );
+
+        if (panel) {
+            break;
+        }
+    }
+
+    if (!panel) {
+        return;
+    }
+
+    const pointsHTML =
+        data.points
+            .map(point => `
+                <li>
+                    ${safeText(point)}
+                </li>
+            `)
+            .join("");
+
+    panel.innerHTML = `
+        <div class="mind-info-icon">
+            ${safeText(data.icon)}
+        </div>
+
+        <div class="mind-info-content">
+
+            <span class="mind-info-label">
+                DIMENSÃO URBANA
+            </span>
+
+            <h3>
+                ${safeText(data.title)}
+            </h3>
+
+            <p>
+                ${safeText(data.description)}
+            </p>
+
+            <ul>
+                ${pointsHTML}
+            </ul>
+
+        </div>
+    `;
+
+    panel.classList.remove(
+        "mind-info-update"
+    );
+
+    void panel.offsetWidth;
+
+    panel.classList.add(
+        "mind-info-update"
+    );
+}
+
+
+/* =========================================================
+   ATIVA NÓ DO MAPA
+   ========================================================= */
+
+function selectMindNode(id) {
+
+    if (!mindMapData[id]) {
+        return;
+    }
+
+    $$(
+        "[data-mind], " +
+        "[data-mind-node]"
+    ).forEach(node => {
+
+        const nodeId =
+            node.dataset.mind ||
+            node.dataset.mindNode;
+
+        const active =
+            nodeId === id;
+
+        node.classList.toggle(
+            "active",
+            active
+        );
+
+        node.classList.toggle(
+            "is-active",
+            active
+        );
+
+        node.setAttribute(
+            "aria-selected",
+            active ? "true" : "false"
+        );
+    });
+
+    renderMindMapInfo(id);
+
+    document.dispatchEvent(
+        new CustomEvent(
+            "mindmapchange",
+            {
+                detail: {
+                    id,
+                    data: mindMapData[id]
+                }
+            }
+        )
+    );
+}
+
+
+/* =========================================================
+   EVENTOS DO MAPA MENTAL
+   ========================================================= */
+
+function initializeMindMapNodes() {
+
+    const nodes =
+        $$(
+            "[data-mind], " +
+            "[data-mind-node]"
+        );
+
+    if (!nodes.length) {
+        return;
+    }
+
+    nodes.forEach(node => {
+
+        const id =
+            node.dataset.mind ||
+            node.dataset.mindNode;
+
+        if (
+            !mindMapData[id]
+        ) {
+            return;
+        }
+
+        node.setAttribute(
+            "role",
+            "button"
+        );
+
+        node.setAttribute(
+            "aria-selected",
+            "false"
+        );
+
+        if (
+            !node.hasAttribute("tabindex")
+        ) {
+
+            node.tabIndex = 0;
+        }
+
+        if (
+            node.dataset.mindInitialized ===
+            "true"
+        ) {
+            return;
+        }
+
+        node.dataset.mindInitialized =
+            "true";
+
+        node.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+                selectMindNode(id);
+            }
+        );
+
+        node.addEventListener(
+            "keydown",
+            event => {
+
+                if (
+                    event.key === "Enter" ||
+                    event.key === " "
+                ) {
+
+                    event.preventDefault();
+
+                    selectMindNode(id);
+                }
+            }
+        );
+    });
+
+    /*
+     * Primeiro nó selecionado.
+     */
+    const active =
+        nodes.find(node =>
+            node.classList.contains("active") ||
+            node.classList.contains("is-active")
+        );
+
+    const first =
+        active || nodes[0];
+
+    if (first) {
+
+        selectMindNode(
+            first.dataset.mind ||
+            first.dataset.mindNode
+        );
+    }
+}
+
+
+/* =========================================================
+   DESENHA CONEXÕES DO MAPA MENTAL
+   ========================================================= */
+
+function drawMindMapConnections() {
+
+    const map =
+        document.querySelector(
+            ".mind-map, " +
+            ".mind-map-container, " +
+            "[data-mind-map]"
+        );
+
+    if (!map) {
+        return;
+    }
+
+    const svg =
+        map.querySelector(
+            "svg.mind-connections, " +
+            "svg[data-mind-connections]"
+        );
+
+    if (!svg) {
+        return;
+    }
+
+    /*
+     * Mantém viewBox consistente.
+     */
+    svg.setAttribute(
+        "viewBox",
+        "0 0 100 100"
+    );
+
+    svg.setAttribute(
+        "preserveAspectRatio",
+        "none"
+    );
+
+    /*
+     * Remove linhas geradas anteriormente.
+     */
+    svg.querySelectorAll(
+        ".mind-generated-line"
+    ).forEach(line =>
+        line.remove()
+    );
+
+    /*
+     * Núcleo.
+     */
+    const center =
+        map.querySelector(
+            ".mind-center, " +
+            "[data-mind-center]"
+        );
+
+    /*
+     * Para cada conexão,
+     * calculamos os centros dos elementos.
+     */
+    mindMapConnections.forEach(
+        connection => {
+
+            const fromId =
+                connection[0];
+
+            const toId =
+                connection[1];
+
+            let fromElement;
+            let toElement;
+
+            if (
+                fromId === "center"
+            ) {
+
+                fromElement =
+                    center;
+
+            } else {
+
+                fromElement =
+                    getMindNodeElement(
+                        fromId
+                    );
+            }
+
+            if (
+                toId === "center"
+            ) {
+
+                toElement =
+                    center;
+
+            } else {
+
+                toElement =
+                    getMindNodeElement(
+                        toId
+                    );
+            }
+
+            if (
+                !fromElement ||
+                !toElement
+            ) {
+                return;
+            }
+
+            const mapRect =
+                map.getBoundingClientRect();
+
+            const fromRect =
+                fromElement.getBoundingClientRect();
+
+            const toRect =
+                toElement.getBoundingClientRect();
+
+            const x1 =
+                (
+                    fromRect.left +
+                    fromRect.width / 2 -
+                    mapRect.left
+                ) /
+                mapRect.width *
+                100;
+
+            const y1 =
+                (
+                    fromRect.top +
+                    fromRect.height / 2 -
+                    mapRect.top
+                ) /
+                mapRect.height *
+                100;
+
+            const x2 =
+                (
+                    toRect.left +
+                    toRect.width / 2 -
+                    mapRect.left
+                ) /
+                mapRect.width *
+                100;
+
+            const y2 =
+                (
+                    toRect.top +
+                    toRect.height / 2 -
+                    mapRect.top
+                ) /
+                mapRect.height *
+                100;
+
+            const line =
+                document.createElementNS(
+                    "http://www.w3.org/2000/svg",
+                    "line"
+                );
+
+            line.setAttribute(
+                "x1",
+                x1
+            );
+
+            line.setAttribute(
+                "y1",
+                y1
+            );
+
+            line.setAttribute(
+                "x2",
+                x2
+            );
+
+            line.setAttribute(
+                "y2",
+                y2
+            );
+
+            line.classList.add(
+                "mind-generated-line"
+            );
+
+            /*
+             * Linhas estruturais ficam atrás
+             * dos nós.
+             */
+            line.setAttribute(
+                "vector-effect",
+                "non-scaling-stroke"
+            );
+
+            svg.appendChild(line);
+        }
+    );
+}
+
+
+/* =========================================================
+   POSICIONAMENTO RESPONSIVO DOS NÓS
+   ========================================================= */
+
+function positionMindMapNodes() {
+
+    const map =
+        document.querySelector(
+            ".mind-map, " +
+            ".mind-map-container, " +
+            "[data-mind-map]"
+        );
+
+    if (!map) {
+        return;
+    }
+
+    Object.entries(
+        mindMapPositions
+    ).forEach(
+        ([id, position]) => {
+
+            const node =
+                getMindNodeElement(id);
+
+            if (!node) {
+                return;
+            }
+
+            /*
+             * Só utiliza posicionamento automático
+             * quando o elemento não estiver sendo
+             * controlado diretamente pelo CSS.
+             */
+            if (
+                node.dataset.fixedPosition ===
+                "true"
+            ) {
+                return;
+            }
+
+            node.style.left =
+                `${position.x}%`;
+
+            node.style.top =
+                `${position.y}%`;
+        }
+    );
+
+    requestAnimationFrame(
+        drawMindMapConnections
+    );
+}
+
+
+/* =========================================================
+   RESPONSIVIDADE DO MAPA
+   ========================================================= */
+
+function initializeMindMapResize() {
+
+    let timeout = null;
+
+    window.addEventListener(
+        "resize",
+        () => {
+
+            clearTimeout(timeout);
+
+            timeout =
+                setTimeout(
+                    () => {
+
+                        positionMindMapNodes();
+
+                    },
+                    120
+                );
+        }
+    );
+}
+
+
+/* =========================================================
+   INICIALIZAÇÃO DO MAPA
+   ========================================================= */
+
+function initializeMindMap() {
+
+    initializeMindMapNodes();
+
+    positionMindMapNodes();
+
+    initializeMindMapResize();
+
+    /*
+     * Redesenha depois que fontes e imagens
+     * tiverem sido carregadas.
+     */
+    window.addEventListener(
+        "load",
+        () => {
+
+            positionMindMapNodes();
+
+        },
+        {
+            once: true
+        }
+    );
+}
+
+
+/* =========================================================
+   API DO MAPA MENTAL
+   ========================================================= */
+
+window.MindMap = {
+
+    data: mindMapData,
+
+    select: selectMindNode,
+
+    redraw: () => {
+
+        positionMindMapNodes();
+
+    },
+
+    get: id =>
+        mindMapData[id] || null
+};
+
+
+/* =========================================================
+   INICIALIZAÇÃO DO MÓDULO
+   ========================================================= */
+
+function initializeTechnologyAndMindMap() {
+
+    initializeTechnologyTabs();
+
+    initializeMindMap();
+}
+
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeTechnologyAndMindMap,
+        {
+            once: true
+        }
+    );
+
+} else {
+
+    initializeTechnologyAndMindMap();
+}
+
+
+/* =========================================================
+   REINICIALIZAÇÃO APÓS ALTERAÇÕES DINÂMICAS
+   ========================================================= */
+
+document.addEventListener(
+    "smartcity:content-updated",
+    () => {
+
+        initializeTechnologyTabs();
+
+        initializeMindMap();
+
+    }
+);
+
+
+/* =========================================================
+   BUSCA — TECNOLOGIAS
+   ========================================================= */
+
+function searchTechnology(query) {
+
+    if (!query) {
+        return [];
+    }
+
+    const normalized =
+        normalizeText(query);
+
+    return Object.entries(
+        technologyData
+    )
+        .filter(
+            ([id, data]) => {
+
+                const text =
+                    normalizeText(
+                        [
+                            id,
+                            data.title,
+                            data.category,
+                            data.description,
+                            ...data.paragraphs,
+                            ...data.examples,
+                            ...data.benefits
+                        ].join(" ")
+                    );
+
+                return text.includes(
+                    normalized
+                );
+            }
+        )
+        .map(
+            ([id, data]) => ({
+                id,
+                ...data
+            })
+        );
+}
+
+
+/* =========================================================
+   BUSCA — MAPA MENTAL
+   ========================================================= */
+
+function searchMindMap(query) {
+
+    if (!query) {
+        return [];
+    }
+
+    const normalized =
+        normalizeText(query);
+
+    return Object.entries(
+        mindMapData
+    )
+        .filter(
+            ([id, data]) => {
+
+                const text =
+                    normalizeText(
+                        [
+                            id,
+                            data.title,
+                            data.description,
+                            ...data.points
+                        ].join(" ")
+                    );
+
+                return text.includes(
+                    normalized
+                );
+            }
+        )
+        .map(
+            ([id, data]) => ({
+                id,
+                ...data
+            })
+        );
+}
+
+
+/* =========================================================
+   API DE PESQUISA
+   ========================================================= */
+
+window.SmartCitySearch = {
+
+    technologies:
+        searchTechnology,
+
+    mindMap:
+        searchMindMap
+};
+
+
+/* =========================================================
+   FINAL DA PARTE 3/5
+   ========================================================= */
+/* =========================================================
+   SCRIPT.JS — PARTE 4/5
+   QUIZ — 15 QUESTÕES + RESULTADO
+   ========================================================= */
+
+
+/* =========================================================
+   BANCO DE QUESTÕES
+   ========================================================= */
+
+const quizData = [
+
+    {
+        id: 1,
+
+        question:
+            "O que caracteriza principalmente uma cidade inteligente?",
+
+        options: [
+            "Ter o maior número possível de prédios tecnológicos",
+            "Utilizar tecnologia, dados e planejamento para melhorar a vida urbana",
+            "Substituir todos os trabalhadores por máquinas",
+            "Construir somente áreas comerciais modernas"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Uma cidade inteligente utiliza tecnologia, dados, planejamento e participação para melhorar serviços, sustentabilidade, eficiência e qualidade de vida.",
+
+        source:
+            "Carta Brasileira para Cidades Inteligentes"
+    },
+
+
+    {
+        id: 2,
+
+        question:
+            "Qual é uma das principais características da estratégia Smart Nation de Singapura?",
+
+        options: [
+            "Eliminar completamente o transporte público",
+            "Utilizar tecnologia e dados para melhorar serviços e a vida da população",
+            "Construir cidades exclusivamente subterrâneas",
+            "Substituir o planejamento urbano por Inteligência Artificial"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "A estratégia Smart Nation busca utilizar tecnologia e dados para melhorar serviços públicos, oportunidades e qualidade de vida.",
+
+        source:
+            "Smart Nation Singapore"
+    },
+
+
+    {
+        id: 3,
+
+        question:
+            "O que é IoT?",
+
+        options: [
+            "Um sistema exclusivo de transporte ferroviário",
+            "Uma tecnologia utilizada apenas em computadores pessoais",
+            "Uma rede de objetos e dispositivos conectados capazes de coletar e trocar dados",
+            "Um tipo de energia renovável"
+        ],
+
+        answer: 2,
+
+        explanation:
+            "Internet of Things, ou Internet das Coisas, conecta objetos físicos a redes para coletar, transmitir e utilizar informações.",
+
+        source:
+            "Conceito de Internet das Coisas aplicado às cidades inteligentes"
+    },
+
+
+    {
+        id: 4,
+
+        question:
+            "Qual é uma das funções de sensores urbanos?",
+
+        options: [
+            "Coletar informações sobre o ambiente e os sistemas da cidade",
+            "Substituir automaticamente todas as decisões governamentais",
+            "Impedir qualquer alteração no trânsito",
+            "Eliminar a necessidade de infraestrutura física"
+        ],
+
+        answer: 0,
+
+        explanation:
+            "Sensores podem coletar dados sobre trânsito, temperatura, qualidade do ar, água, iluminação, ocupação e diversos outros aspectos urbanos.",
+
+        source:
+            "Carta Brasileira para Cidades Inteligentes"
+    },
+
+
+    {
+        id: 5,
+
+        question:
+            "O que é um Digital Twin urbano?",
+
+        options: [
+            "Uma segunda cidade construída fisicamente",
+            "Uma representação digital de elementos físicos da cidade",
+            "Um aplicativo de mensagens",
+            "Um sistema utilizado somente para entretenimento"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Um gêmeo digital é uma representação computacional de elementos ou sistemas físicos que pode apoiar análise, monitoramento e simulação.",
+
+        source:
+            "Conceito de Digital Twin / Virtual Singapore"
+    },
+
+
+    {
+        id: 6,
+
+        question:
+            "Qual projeto de Singapura está relacionado a um modelo digital tridimensional da cidade?",
+
+        options: [
+            "NEWater",
+            "Virtual Singapore",
+            "30 by 30",
+            "Hawker Centres"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Virtual Singapore é associado a uma plataforma tridimensional do território que pode apoiar planejamento, análise e simulação.",
+
+        source:
+            "Smart Nation Singapore"
+    },
+
+
+    {
+        id: 7,
+
+        question:
+            "O que significa a meta 30 by 30?",
+
+        options: [
+            "Construir 30 novos metrôs até 2030",
+            "Reduzir em 30% todos os impostos até 2030",
+            "Produzir localmente 30% das necessidades nutricionais do país até 2030",
+            "Plantar 30 milhões de árvores todos os anos"
+        ],
+
+        answer: 2,
+
+        explanation:
+            "A estratégia 30 by 30 busca aumentar a capacidade de produção local de alimentos de Singapura para atingir 30% das necessidades nutricionais até 2030.",
+
+        source:
+            "Singapore Food Agency"
+    },
+
+
+    {
+        id: 8,
+
+        question:
+            "Por que a agricultura vertical é relevante para Singapura?",
+
+        options: [
+            "Porque o país possui grande quantidade de terras agrícolas disponíveis",
+            "Porque permite utilizar o espaço vertical para produzir alimentos em um território limitado",
+            "Porque elimina completamente o consumo de energia",
+            "Porque não necessita de tecnologia"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Singapura possui disponibilidade limitada de terras. A agricultura vertical permite produzir alimentos utilizando estruturas empilhadas e ambientes controlados.",
+
+        source:
+            "Singapore Food Agency"
+    },
+
+
+    {
+        id: 9,
+
+        question:
+            "Qual é a principal finalidade do NEWater?",
+
+        options: [
+            "Produzir combustível",
+            "Produzir água altamente purificada a partir de água recuperada",
+            "Resfriar automaticamente todas as ruas",
+            "Substituir o transporte público"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "NEWater é uma água altamente purificada produzida por meio de processos avançados de tratamento e reutilização da água.",
+
+        source:
+            "PUB Singapore"
+    },
+
+
+    {
+        id: 10,
+
+        question:
+            "Os Supertrees estão localizados em qual atração de Singapura?",
+
+        options: [
+            "Gardens by the Bay",
+            "Changi Airport",
+            "Tuas Port",
+            "Marina Barrage"
+        ],
+
+        answer: 0,
+
+        explanation:
+            "Os Supertrees são estruturas icônicas do Gardens by the Bay e combinam arquitetura, paisagismo e elementos tecnológicos.",
+
+        source:
+            "Gardens by the Bay"
+    },
+
+
+    {
+        id: 11,
+
+        question:
+            "Qual é a importância dos Hawker Centres?",
+
+        options: [
+            "São exclusivamente centros administrativos",
+            "São espaços de alimentação e convivência importantes para a cultura de Singapura",
+            "São exclusivamente estações ferroviárias",
+            "São centros de processamento de dados"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Os Hawker Centres são importantes espaços de alimentação, comércio e convivência social. A cultura hawker de Singapura também possui reconhecimento internacional.",
+
+        source:
+            "UNESCO / Singapore Government"
+    },
+
+
+    {
+        id: 12,
+
+        question:
+            "Qual alternativa apresenta uma característica importante da mobilidade inteligente?",
+
+        options: [
+            "Priorizar exclusivamente automóveis particulares",
+            "Integrar transporte, dados, planejamento e infraestrutura",
+            "Eliminar todos os ônibus",
+            "Construir apenas novas rodovias"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Mobilidade inteligente envolve integração entre transporte, infraestrutura, dados, planejamento e diferentes formas de deslocamento.",
+
+        source:
+            "Carta Brasileira para Cidades Inteligentes"
+    },
+
+
+    {
+        id: 13,
+
+        question:
+            "Qual é uma vantagem de uma Smart Grid?",
+
+        options: [
+            "Impedir o uso de energia renovável",
+            "Aumentar a capacidade de monitorar e gerenciar a rede elétrica",
+            "Desconectar consumidores da rede",
+            "Eliminar todos os medidores"
+        ],
+
+        answer: 1,
+
+        explanation:
+            "Smart Grids utilizam sensores, comunicação e dados para melhorar o monitoramento, gerenciamento e eficiência da rede elétrica.",
+
+        source:
+            "Conceito de Smart Grid"
+    },
+
+
+    {
+        id: 14,
+
+        question:
+            "Por que a governança é importante em uma cidade inteligente?",
+
+        options: [
+            "Porque tecnologia sozinha não define prioridades públicas",
+            "Porque governos não precisam utilizar dados",
+            "Porque elimina a necessidade de participação social",
+            "Porque substitui completamente as políticas públicas"
+        ],
+
+        answer: 0,
+
+        explanation:
+            "Tecnologia precisa estar associada a governança, planejamento, transparência, participação, segurança e políticas públicas.",
+
+        source:
+            "Carta Brasileira para Cidades Inteligentes"
+    },
+
+
+    {
+        id: 15,
+
+        question:
+            "Qual princípio deve estar no centro de uma cidade inteligente?",
+
+        options: [
+            "Somente o crescimento econômico",
+            "Somente a automação",
+            "As pessoas e a melhoria da qualidade de vida",
+            "Somente a quantidade de sensores instalados"
+        ],
+
+        answer: 2,
+
+        explanation:
+            "Uma cidade inteligente deve utilizar tecnologia como instrumento para melhorar a vida das pessoas, considerando inclusão, sustentabilidade, eficiência e direitos.",
+
+        source:
+            "Carta Brasileira para Cidades Inteligentes"
+    }
+
+];
+
+
+/* =========================================================
+   ESTADO DO QUIZ
+   ========================================================= */
+
+const quizState = {
+
+    currentQuestion: 0,
+
+    score: 0,
+
+    answered: false,
+
+    answers: [],
+
+    started: false,
+
+    finished: false
+};
+
+
+/* =========================================================
+   ELEMENTOS DO QUIZ
+   ========================================================= */
+
+function getQuizElements() {
+
+    return {
+
+        container:
+            byId("quizQuestions"),
+
+        progressText:
+            byId("quizProgressText") ||
+            byId("quizQuestionNumber"),
+
+        scoreText:
+            byId("quizScoreText") ||
+            byId("quizScore"),
+
+        progressFill:
+            byId("quizProgressFill") ||
+            byId("quizProgressBar"),
+
+        result:
+            byId("quizResult"),
+
+        resultTitle:
+            byId("quizResultTitle"),
+
+        finalScore:
+            byId("quizFinalScore"),
+
+        resultMessage:
+            byId("quizResultMessage"),
+
+        restart:
+            byId("restartQuiz")
+    };
+}
+
+
+/* =========================================================
+   ESCONDE O RESULTADO
+   ========================================================= */
+
+function hideQuizResult() {
+
+    const elements =
+        getQuizElements();
+
+    if (!elements.result) {
+        return;
+    }
+
+    elements.result.hidden =
+        true;
+
+    elements.result.classList.remove(
+        "active",
+        "is-visible"
+    );
+}
+
+
+/* =========================================================
+   MOSTRA RESULTADO
+   ========================================================= */
+
+function showQuizResult() {
+
+    const elements =
+        getQuizElements();
+
+    const total =
+        quizData.length;
+
+    const percentage =
+        Math.round(
+            (
+                quizState.score /
+                total
+            ) * 100
+        );
+
+    let title;
+    let message;
+
+    if (percentage >= 90) {
+
+        title =
+            "Excelente resultado!";
+
+        message =
+            "Você demonstrou um ótimo domínio dos conceitos de cidades inteligentes e das soluções utilizadas em Singapura.";
+
+    } else if (percentage >= 70) {
+
+        title =
+            "Muito bom!";
+
+        message =
+            "Você compreendeu os principais conceitos. Algumas áreas ainda podem ser aprofundadas.";
+
+    } else if (percentage >= 50) {
+
+        title =
+            "Bom começo!";
+
+        message =
+            "Você já possui uma base sobre cidades inteligentes, mas ainda existem conceitos importantes para revisar.";
+
+    } else {
+
+        title =
+            "Vamos aprender mais!";
+
+        message =
+            "Revise as explicações das questões e explore as seções de Singapura e Tecnologias para fortalecer seus conhecimentos.";
+    }
+
+    if (elements.container) {
+
+        elements.container.innerHTML =
+            "";
+    }
+
+    if (elements.resultTitle) {
+
+        elements.resultTitle.textContent =
+            title;
+    }
+
+    if (elements.finalScore) {
+
+        elements.finalScore.textContent =
+            `${quizState.score}/${total}`;
+    }
+
+    if (elements.resultMessage) {
+
+        elements.resultMessage.textContent =
+            message;
+    }
+
+    if (elements.result) {
+
+        elements.result.hidden =
+            false;
+
+        elements.result.classList.add(
+            "active",
+            "is-visible"
+        );
+
+        setTimeout(() => {
+
+            scrollToElement(
+                elements.result,
+                100
+            );
+
+        }, 100);
+    }
+
+    quizState.finished =
+        true;
+}
+
+
+/* =========================================================
+   ATUALIZA PROGRESSO
+   ========================================================= */
+
+function updateQuizProgress() {
+
+    const elements =
+        getQuizElements();
+
+    const current =
+        Math.min(
+            quizState.currentQuestion + 1,
+            quizData.length
+        );
+
+    const percentage =
+        Math.round(
+            (
+                quizState.currentQuestion /
+                quizData.length
+            ) * 100
+        );
+
+    if (elements.progressText) {
+
+        elements.progressText.textContent =
+            `${current} de ${quizData.length}`;
+    }
+
+    if (elements.scoreText) {
+
+        elements.scoreText.textContent =
+            `${quizState.score} ponto${quizState.score === 1 ? "" : "s"}`;
+    }
+
+    if (elements.progressFill) {
+
+        elements.progressFill.style.width =
+            `${percentage}%`;
+
+        elements.progressFill.setAttribute(
+            "aria-valuenow",
+            percentage
+        );
+    }
+}
+
+
+/* =========================================================
+   RENDERIZA QUESTÃO
+   ========================================================= */
+
+function renderQuizQuestion() {
+
+    const elements =
+        getQuizElements();
+
+    const question =
+        quizData[
+            quizState.currentQuestion
+        ];
+
+    if (
+        !question ||
+        !elements.container
+    ) {
+        return;
+    }
+
+    quizState.answered =
+        false;
+
+    hideQuizResult();
+
+    updateQuizProgress();
+
+    const letters = [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+    ];
+
+    const optionsHTML =
+        question.options
+            .map(
+                (option, index) => `
+                    <button
+                        type="button"
+                        class="quiz-option"
+                        data-quiz-option="${index}"
+                        aria-label="Alternativa ${letters[index]}"
+                    >
+                        <span class="quiz-option-letter">
+                            ${letters[index]}
+                        </span>
+
+                        <span class="quiz-option-text">
+                            ${safeText(option)}
+                        </span>
+                    </button>
+                `
+            )
+            .join("");
+
+    elements.container.innerHTML = `
+
+        <article
+            class="quiz-question-card"
+            data-question-id="${question.id}"
+        >
+
+            <div class="quiz-question-top">
+
+                <span class="quiz-question-index">
+                    QUESTÃO ${question.id}
+                </span>
+
+                <span class="quiz-question-topic">
+                    Cidade inteligente
+                </span>
+
+            </div>
+
+            <h3 class="quiz-question-title">
+                ${safeText(question.question)}
+            </h3>
+
+            <div
+                class="quiz-options"
+                role="radiogroup"
+                aria-label="Alternativas"
+            >
+                ${optionsHTML}
+            </div>
+
+            <div
+                class="quiz-feedback"
+                hidden
+                aria-live="polite"
+            ></div>
+
+            <button
+                type="button"
+                class="quiz-next"
+                data-quiz-next
+                hidden
+            >
+                Próxima questão
+                <span aria-hidden="true">→</span>
+            </button>
+
+        </article>
+    `;
+
+    const options =
+        $$(
+            "[data-quiz-option]",
+            elements.container
+        );
+
+    options.forEach(
+        option => {
+
+            option.addEventListener(
+                "click",
+                () => {
+
+                    const index =
+                        Number(
+                            option.dataset.quizOption
+                        );
+
+                    answerQuizQuestion(
+                        index
+                    );
+                }
+            );
+        }
+    );
+
+    const next =
+        elements.container.querySelector(
+            "[data-quiz-next]"
+        );
+
+    if (next) {
+
+        next.addEventListener(
+            "click",
+            nextQuizQuestion
+        );
+    }
+
+    /*
+     * Foco na questão.
+     */
+    const card =
+        elements.container.querySelector(
+            ".quiz-question-card"
+        );
+
+    if (card) {
+
+        card.setAttribute(
+            "tabindex",
+            "-1"
+        );
+
+        setTimeout(() => {
+
+            card.focus({
+                preventScroll: true
+            });
+
+        }, 50);
+    }
+}
+
+
+/* =========================================================
+   RESPONDE QUESTÃO
+   ========================================================= */
+
+function answerQuizQuestion(selectedIndex) {
+
+    if (quizState.answered) {
+        return;
+    }
+
+    const question =
+        quizData[
+            quizState.currentQuestion
+        ];
+
+    if (!question) {
+        return;
+    }
+
+    quizState.answered =
+        true;
+
+    const correct =
+        selectedIndex ===
+        question.answer;
+
+    if (correct) {
+
+        quizState.score++;
+
+    }
+
+    quizState.answers[
+        quizState.currentQuestion
+    ] = {
+
+        questionId:
+            question.id,
+
+        selected:
+            selectedIndex,
+
+        correct
+    };
+
+    const elements =
+        getQuizElements();
+
+    const optionButtons =
+        $$(
+            "[data-quiz-option]",
+            elements.container
+        );
+
+    optionButtons.forEach(
+        (button, index) => {
+
+            button.disabled =
+                true;
+
+            if (
+                index ===
+                question.answer
+            ) {
+
+                button.classList.add(
+                    "correct"
+                );
+            }
+
+            if (
+                index === selectedIndex &&
+                !correct
+            ) {
+
+                button.classList.add(
+                    "incorrect"
+                );
+            }
+        }
+    );
+
+    const feedback =
+        elements.container.querySelector(
+            ".quiz-feedback"
+        );
+
+    if (feedback) {
+
+        feedback.hidden =
+            false;
+
+        feedback.className =
+            `quiz-feedback ${
+                correct
+                    ? "is-correct"
+                    : "is-incorrect"
+            }`;
+
+        feedback.innerHTML = `
+
+            <div class="quiz-feedback-icon">
+                ${correct ? "✓" : "×"}
+            </div>
+
+            <div class="quiz-feedback-content">
+
+                <strong>
+                    ${
+                        correct
+                            ? "Resposta correta!"
+                            : "Resposta incorreta."
+                    }
+                </strong>
+
+                <p>
+                    ${safeText(
+                        question.explanation
+                    )}
+                </p>
+
+                <small>
+                    Fonte: ${safeText(
+                        question.source
+                    )}
+                </small>
+
+            </div>
+        `;
+    }
+
+    const next =
+        elements.container.querySelector(
+            "[data-quiz-next]"
+        );
+
+    if (next) {
+
+        next.hidden =
+            false;
+
+        next.textContent =
+            quizState.currentQuestion >=
+            quizData.length - 1
+                ? "Ver resultado"
+                : "Próxima questão";
+
+        const arrow =
+            document.createElement(
+                "span"
+            );
+
+        arrow.textContent =
+            " →";
+
+        next.appendChild(
+            arrow
+        );
+    }
+
+    updateQuizProgress();
+
+    /*
+     * Pequeno atraso antes de avançar
+     * automaticamente.
+     */
+    setTimeout(
+        () => {
+
+            if (
+                !quizState.finished &&
+                quizState.answered
+            ) {
+
+                /*
+                 * O usuário ainda pode ler
+                 * a explicação.
+                 */
+                const nextButton =
+                    elements.container.querySelector(
+                        "[data-quiz-next]"
+                    );
+
+                if (nextButton) {
+
+                    nextButton.focus({
+                        preventScroll: true
+                    });
+                }
+            }
+
+        },
+        150
+    );
+}
+
+
+/* =========================================================
+   PRÓXIMA QUESTÃO
+   ========================================================= */
+
+function nextQuizQuestion() {
+
+    if (!quizState.answered) {
+        return;
+    }
+
+    if (
+        quizState.currentQuestion >=
+        quizData.length - 1
+    ) {
+
+        showQuizResult();
+
+        updateQuizProgress();
+
+        return;
+    }
+
+    quizState.currentQuestion++;
+
+    renderQuizQuestion();
+
+    const elements =
+        getQuizElements();
+
+    if (elements.container) {
+
+        setTimeout(() => {
+
+            scrollToElement(
+                elements.container,
+                105
+            );
+
+        }, 80);
+    }
+}
+
+
+/* =========================================================
+   REINICIA QUIZ
+   ========================================================= */
+
+function restartQuiz() {
+
+    quizState.currentQuestion =
+        0;
+
+    quizState.score =
+        0;
+
+    quizState.answered =
+        false;
+
+    quizState.answers =
+        [];
+
+    quizState.started =
+        true;
+
+    quizState.finished =
+        false;
+
+    hideQuizResult();
+
+    renderQuizQuestion();
+
+    const elements =
+        getQuizElements();
+
+    if (elements.container) {
+
+        setTimeout(() => {
+
+            scrollToElement(
+                elements.container,
+                105
+            );
+
+        }, 80);
+    }
+}
+
+
+/* =========================================================
+   INICIA QUIZ
+   ========================================================= */
+
+function initializeQuiz() {
+
+    const elements =
+        getQuizElements();
+
+    if (
+        !elements.container
+    ) {
+        return;
+    }
+
+    /*
+     * Evita inicializações duplicadas.
+     */
+    if (
+        elements.container.dataset.quizInitialized ===
+        "true"
+    ) {
+
+        return;
+    }
+
+    elements.container.dataset.quizInitialized =
+        "true";
+
+    quizState.currentQuestion =
+        0;
+
+    quizState.score =
+        0;
+
+    quizState.answers =
+        [];
+
+    quizState.started =
+        true;
+
+    quizState.finished =
+        false;
+
+    renderQuizQuestion();
+
+    if (elements.restart) {
+
+        elements.restart.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+                restartQuiz();
+            }
+        );
+    }
+
+    /*
+     * Compatibilidade com botões
+     * criados dinamicamente.
+     */
+    document.addEventListener(
+        "click",
+        event => {
+
+            const restart =
+                event.target.closest(
+                    "#restartQuiz"
+                );
+
+            if (
+                restart &&
+                restart !== elements.restart
+            ) {
+
+                event.preventDefault();
+
+                restartQuiz();
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   RESULTADO EM PORCENTAGEM
+   ========================================================= */
+
+function getQuizPercentage() {
+
+    if (!quizData.length) {
+        return 0;
+    }
+
+    return Math.round(
+        (
+            quizState.score /
+            quizData.length
+        ) * 100
+    );
+}
+
+
+/* =========================================================
+   DESEMPENHO DO QUIZ
+   ========================================================= */
+
+function getQuizPerformance() {
+
+    const percentage =
+        getQuizPercentage();
+
+    if (percentage >= 90) {
+        return "excelente";
+    }
+
+    if (percentage >= 70) {
+        return "muito-bom";
+    }
+
+    if (percentage >= 50) {
+        return "bom";
+    }
+
+    return "iniciante";
+}
+
+
+/* =========================================================
+   RESUMO DO QUIZ
+   ========================================================= */
+
+function getQuizSummary() {
+
+    return {
+
+        total:
+            quizData.length,
+
+        score:
+            quizState.score,
+
+        percentage:
+            getQuizPercentage(),
+
+        performance:
+            getQuizPerformance(),
+
+        completed:
+            quizState.finished,
+
+        answers:
+            [...quizState.answers]
+    };
+}
+
+
+/* =========================================================
+   API DO QUIZ
+   ========================================================= */
+
+window.Quiz = {
+
+    data:
+        quizData,
+
+    state:
+        quizState,
+
+    start:
+        restartQuiz,
+
+    next:
+        nextQuizQuestion,
+
+    answer:
+        answerQuizQuestion,
+
+    restart:
+        restartQuiz,
+
+    getPercentage:
+        getQuizPercentage,
+
+    getPerformance:
+        getQuizPerformance,
+
+    getSummary:
+        getQuizSummary
+};
+
+
+/* =========================================================
+   ATALHOS DO QUIZ
+   ========================================================= */
+
+function initializeQuizKeyboard() {
+
+    document.addEventListener(
+        "keydown",
+        event => {
+
+            /*
+             * Só responde quando o foco
+             * estiver dentro do quiz.
+             */
+            const active =
+                document.activeElement;
+
+            if (
+                !active ||
+                !active.closest(
+                    "#quizQuestions"
+                )
+            ) {
+                return;
+            }
+
+            /*
+             * Números 1–4 selecionam
+             * diretamente uma alternativa.
+             */
+            const number =
+                Number(event.key);
+
+            if (
+                number >= 1 &&
+                number <= 4 &&
+                !quizState.answered
+            ) {
+
+                const option =
+                    document.querySelector(
+                        `[data-quiz-option="${number - 1}"]`
+                    );
+
+                if (option) {
+
+                    option.click();
+                }
+            }
+
+            /*
+             * Enter ou seta direita
+             * avança após responder.
+             */
+            if (
+                (
+                    event.key === "Enter" ||
+                    event.key === "ArrowRight"
+                ) &&
+                quizState.answered
+            ) {
+
+                const next =
+                    document.querySelector(
+                        "[data-quiz-next]"
+                    );
+
+                if (next) {
+
+                    event.preventDefault();
+
+                    next.click();
+                }
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   INDICADOR VISUAL DO DESEMPENHO
+   ========================================================= */
+
+function updateQuizBodyState() {
+
+    const percentage =
+        getQuizPercentage();
+
+    document.body.dataset.quizScore =
+        String(percentage);
+
+    document.body.classList.remove(
+        "quiz-excellent",
+        "quiz-good",
+        "quiz-average",
+        "quiz-beginner"
+    );
+
+    if (percentage >= 90) {
+
+        document.body.classList.add(
+            "quiz-excellent"
+        );
+
+    } else if (percentage >= 70) {
+
+        document.body.classList.add(
+            "quiz-good"
+        );
+
+    } else if (percentage >= 50) {
+
+        document.body.classList.add(
+            "quiz-average"
+        );
+
+    } else {
+
+        document.body.classList.add(
+            "quiz-beginner"
+        );
+    }
+}
+
+
+/* =========================================================
+   INICIALIZAÇÃO
+   ========================================================= */
+
+function initializeQuizModule() {
+
+    initializeQuiz();
+
+    initializeQuizKeyboard();
+}
+
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeQuizModule,
+        {
+            once: true
+        }
+    );
+
+} else {
+
+    initializeQuizModule();
+}
+
+
+/* =========================================================
+   REINICIALIZAÇÃO
+   ========================================================= */
+
+document.addEventListener(
+    "smartcity:content-updated",
+    () => {
+
+        initializeQuiz();
+
+    }
+);
+
+
+/* =========================================================
+   ATUALIZA O ESTADO APÓS RESPOSTA
+   ========================================================= */
+
+document.addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target.closest(
+                "[data-quiz-option]"
+            )
+        ) {
+
+            setTimeout(
+                updateQuizBodyState,
+                20
+            );
+        }
+    }
+);
+
+
+/* =========================================================
+   EVENTO DE FINALIZAÇÃO
+   ========================================================= */
+
+document.addEventListener(
+    "click",
+    event => {
+
+        const button =
+            event.target.closest(
+                "[data-quiz-next]"
+            );
+
+        if (!button) {
+            return;
+        }
+
+        if (
+            quizState.currentQuestion >=
+            quizData.length - 1 &&
+            quizState.answered
+        ) {
+
+            setTimeout(
+                () => {
+
+                    document.dispatchEvent(
+                        new CustomEvent(
+                            "quizfinished",
+                            {
+                                detail:
+                                    getQuizSummary()
+                            }
+                        )
+                    );
+
+                },
+                50
+            );
+        }
+    }
+);
+
+
+/* =========================================================
+   FINAL DA PARTE 4/5
+   ========================================================= */
+/* =========================================================
+   5/5 — DIAGNÓSTICO DA CIDADE + FONTES + OPINIÃO
+   ========================================================= */
+
+(function () {
+    "use strict";
+
+    /* ---------------------------------------------------------
+       DIAGNÓSTICO DE CIDADE
+       --------------------------------------------------------- */
+
+    const cityDiagnosisData = [
+        {
+            id: "governanca",
+            title: "Governança e participação",
+            questions: [
+                "A prefeitura possui canais digitais ativos para ouvir moradores?",
+                "A população participa de decisões e projetos importantes da cidade?"
+            ],
+            recommendation:
+                "Amplie canais de participação, consultas públicas, transparência e acompanhamento dos projetos municipais."
+        },
+
+        {
+            id: "mobilidade",
+            title: "Mobilidade urbana",
+            questions: [
+                "A cidade possui transporte público integrado e acessível?",
+                "Existem boas condições para caminhar e utilizar bicicleta?"
+            ],
+            recommendation:
+                "Priorize transporte coletivo, integração tarifária, calçadas acessíveis, ciclovias e dados de mobilidade."
+        },
+
+        {
+            id: "ambiente",
+            title: "Meio ambiente",
+            questions: [
+                "A cidade possui políticas para reduzir emissões e poluição?",
+                "Existem áreas verdes, parques ou projetos de recuperação ambiental?"
+            ],
+            recommendation:
+                "Aumente áreas verdes, monitore a qualidade ambiental e estabeleça metas mensuráveis de redução de emissões."
+        },
+
+        {
+            id: "agua",
+            title: "Água e saneamento",
+            questions: [
+                "A maior parte da população possui acesso adequado à água potável?",
+                "A cidade possui tratamento adequado de esgoto?"
+            ],
+            recommendation:
+                "Invista em universalização do saneamento, redução de perdas, monitoramento da água e infraestrutura resiliente."
+        },
+
+        {
+            id: "energia",
+            title: "Energia",
+            questions: [
+                "Existem iniciativas de eficiência energética em prédios e serviços públicos?",
+                "A cidade utiliza ou incentiva fontes renováveis de energia?"
+            ],
+            recommendation:
+                "Amplie eficiência energética, geração distribuída e uso de fontes renováveis em instalações públicas e privadas."
+        },
+
+        {
+            id: "residuos",
+            title: "Resíduos e economia circular",
+            questions: [
+                "A cidade possui coleta seletiva funcionando de forma significativa?",
+                "Existem iniciativas de reciclagem, reaproveitamento ou economia circular?"
+            ],
+            recommendation:
+                "Fortaleça coleta seletiva, reciclagem, compostagem, logística reversa e redução da geração de resíduos."
+        },
+
+        {
+            id: "tecnologia",
+            title: "Conectividade e tecnologia",
+            questions: [
+                "A população possui acesso amplo à internet de qualidade?",
+                "A cidade utiliza sensores ou dispositivos conectados para melhorar serviços?"
+            ],
+            recommendation:
+                "Expanda conectividade e infraestrutura digital, priorizando também regiões com menor acesso tecnológico."
+        },
+
+        {
+            id: "dados",
+            title: "Dados e serviços digitais",
+            questions: [
+                "A prefeitura oferece serviços públicos que podem ser acessados pela internet?",
+                "A administração utiliza dados para orientar decisões e políticas públicas?"
+            ],
+            recommendation:
+                "Integre bases de dados, digitalize serviços e utilize indicadores para avaliar continuamente as políticas públicas."
+        },
+
+        {
+            id: "planejamento",
+            title: "Planejamento e inclusão",
+            questions: [
+                "Os projetos urbanos consideram acessibilidade e inclusão social?",
+                "A cidade possui planejamento de longo prazo baseado em indicadores?"
+            ],
+            recommendation:
+                "Integre planejamento urbano, inclusão, acessibilidade e metas de longo prazo com indicadores públicos."
+        }
+    ];
+
+    const cityState = {
+        active: false,
+        finished: false,
+        cityName: "",
+        currentQuestion: 0,
+        answers: {},
+        questions: [],
+        result: null
+    };
+
+    function cityElements() {
+        return {
+            section: byId("cityTest") ||
+                byId("cityDiagnosis") ||
+                document.querySelector('[data-section="city-test"]'),
+
+            intro: byId("cityIntro"),
+            nameInput: byId("cityName"),
+            startButton: byId("startCityTest"),
+
+            questionsContainer: byId("cityQuestions"),
+            questionList: byId("cityQuestionList"),
+
+            progressText: byId("cityProgressText"),
+            progressFill: byId("cityProgressFill"),
+
+            cancelButton: byId("cancelCityTest"),
+            submitButton: byId("submitCityTest"),
+
+            result: byId("cityResult"),
+            resultCityName: byId("resultCityName"),
+            overallScore: byId("overallScore"),
+            maturityLevel: byId("maturityLevel"),
+            maturityDescription: byId("maturityDescription"),
+
+            dimensionResults: byId("dimensionResults"),
+            strengths: byId("cityStrengths"),
+            priorities: byId("cityPriorities"),
+            recommendations: byId("cityRecommendations"),
+
+            restartButton: byId("restartCityTest")
+        };
+    }
+
+    function createCityQuestions() {
+        const questions = [];
+
+        cityDiagnosisData.forEach(function (dimension) {
+            dimension.questions.forEach(function (question, index) {
+                questions.push({
+                    id: `${dimension.id}-${index + 1}`,
+                    dimension: dimension.id,
+                    dimensionTitle: dimension.title,
+                    text: question
                 });
             });
         });
 
-        submit.addEventListener("click", calculateDiagnosis);
-        updateCityProgress();
+        return questions;
     }
 
-    function startTest() {
-        const name = cityNameInput.value.trim();
-        if (!name) {
-            cityNameInput.focus();
-            cityNameInput.classList.add("input-error");
-            setTimeout(() => cityNameInput.classList.remove("input-error"), 1200);
+    function getCityQuestionContainer() {
+        const elements = cityElements();
+
+        return elements.questionList ||
+            elements.questionsContainer ||
+            null;
+    }
+
+    function showCityElement(element, visible) {
+        if (!element) return;
+
+        element.hidden = !visible;
+        element.style.display = visible ? "" : "none";
+    }
+
+    function startCityDiagnosis() {
+        const elements = cityElements();
+
+        const enteredName = elements.nameInput
+            ? elements.nameInput.value.trim()
+            : "";
+
+        cityState.cityName = enteredName || "Minha cidade";
+        cityState.active = true;
+        cityState.finished = false;
+        cityState.currentQuestion = 0;
+        cityState.answers = {};
+        cityState.questions = createCityQuestions();
+        cityState.result = null;
+
+        /*
+         * Importante:
+         * não escondemos a seção inteira.
+         * Isso evita o problema anterior em que o conteúdo desaparecia
+         * depois de clicar em "Começar".
+         */
+        showCityElement(elements.intro, false);
+        showCityElement(elements.questionsContainer, true);
+        showCityElement(elements.questionList, true);
+        showCityElement(elements.result, false);
+
+        if (elements.startButton) {
+            elements.startButton.disabled = false;
+        }
+
+        if (elements.cancelButton) {
+            elements.cancelButton.disabled = false;
+        }
+
+        renderCityQuestion();
+    }
+
+    function renderCityQuestion() {
+        const elements = cityElements();
+        const container = getCityQuestionContainer();
+
+        if (!container || !cityState.active) return;
+
+        const question = cityState.questions[cityState.currentQuestion];
+
+        if (!question) {
+            finishCityDiagnosis();
             return;
         }
 
-        cityNameInput.classList.remove("input-error");
-        answers.fill(null);
-        finished = false;
-        intro.classList.add("hidden");
-        result.classList.add("hidden");
-        questionsContainer.classList.remove("hidden");
-        renderCityQuestions();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+        const number = cityState.currentQuestion + 1;
+        const total = cityState.questions.length;
 
-    function calculateDiagnosis() {
-        if (answers.some(answer => answer === null)) return;
+        if (elements.progressText) {
+            elements.progressText.textContent =
+                `Pergunta ${number} de ${total}`;
+        }
 
-        const cityName = cityNameInput.value.trim() || "Sua cidade";
-        const dimensionScores = Object.entries(dimensions).map(([name, indexes]) => {
-            const points = indexes.reduce((sum, index) => sum + answers[index], 0);
-            return { name, score: Math.round((points / indexes.length) * 100) };
+        if (elements.progressFill) {
+            const progress = ((number - 1) / total) * 100;
+            elements.progressFill.style.width = `${progress}%`;
+        }
+
+        const previousAnswer = cityState.answers[question.id];
+
+        container.innerHTML = `
+            <article class="city-question-card" data-question-id="${question.id}">
+                <div class="city-question-meta">
+                    <span class="city-question-number">
+                        ${number.toString().padStart(2, "0")}
+                    </span>
+
+                    <span class="city-question-dimension">
+                        ${safeText(question.dimensionTitle)}
+                    </span>
+                </div>
+
+                <h3 class="city-question-title">
+                    ${safeText(question.text)}
+                </h3>
+
+                <div class="city-answer-options" role="group"
+                     aria-label="Resposta da pergunta">
+                    
+                    <button
+                        type="button"
+                        class="city-answer-button ${
+                            previousAnswer === true ? "selected" : ""
+                        }"
+                        data-city-answer="yes"
+                        aria-pressed="${
+                            previousAnswer === true ? "true" : "false"
+                        }">
+                        <span class="answer-icon">✓</span>
+                        <span>Sim</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="city-answer-button ${
+                            previousAnswer === false ? "selected" : ""
+                        }"
+                        data-city-answer="no"
+                        aria-pressed="${
+                            previousAnswer === false ? "true" : "false"
+                        }">
+                        <span class="answer-icon">×</span>
+                        <span>Não</span>
+                    </button>
+                </div>
+
+                <div class="city-question-hint">
+                    Responda de acordo com a realidade atual da cidade.
+                </div>
+            </article>
+        `;
+
+        const buttons = container.querySelectorAll("[data-city-answer]");
+
+        buttons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                const answer = button.dataset.cityAnswer === "yes";
+
+                answerCityQuestion(question.id, answer);
+            });
         });
 
-        const overallScore = Math.round(
-            dimensionScores.reduce((sum, item) => sum + item.score, 0) / dimensionScores.length
-        );
-        const maturity = getMaturityLevel(overallScore);
-        renderDiagnosis(cityName, overallScore, maturity, dimensionScores);
-        finished = true;
+        if (elements.submitButton) {
+            const answered = Object.keys(cityState.answers).length;
+
+            elements.submitButton.disabled =
+                answered !== total;
+
+            elements.submitButton.style.display =
+                answered === total ? "" : "none";
+        }
     }
 
-    function getMaturityLevel(score) {
-        if (score >= 85) return {
-            title: "Maturidade muito avançada",
-            description: "A cidade apresenta desempenho elevado em diversas dimensões. O próximo passo é consolidar políticas, monitorar resultados e manter a melhoria contínua."
-        };
-        if (score >= 70) return {
-            title: "Maturidade avançada",
-            description: "A cidade apresenta uma boa estrutura para desenvolver soluções inteligentes, embora algumas áreas ainda possam evoluir."
-        };
-        if (score >= 55) return {
-            title: "Maturidade em desenvolvimento",
-            description: "Existem iniciativas importantes, mas elas ainda precisam ser ampliadas, integradas e acompanhadas por indicadores."
-        };
-        if (score >= 40) return {
-            title: "Maturidade inicial",
-            description: "A cidade possui oportunidades significativas para desenvolver políticas de transformação urbana e integrar melhor seus serviços."
-        };
+    function answerCityQuestion(questionId, answer) {
+        cityState.answers[questionId] = answer;
+
+        updateCityProgress();
+
+        /*
+         * Pequena pausa para o usuário perceber a seleção.
+         * Depois avançamos automaticamente.
+         */
+        setTimeout(function () {
+            if (!cityState.active) return;
+
+            if (cityState.currentQuestion <
+                cityState.questions.length - 1) {
+
+                cityState.currentQuestion += 1;
+                renderCityQuestion();
+
+                const container = getCityQuestionContainer();
+
+                if (container) {
+                    container.scrollIntoView({
+                        behavior: "smooth",
+                        block: "center"
+                    });
+                }
+
+            } else {
+                finishCityDiagnosis();
+            }
+        }, 220);
+    }
+
+    function updateCityProgress() {
+        const elements = cityElements();
+        const total = cityState.questions.length;
+
+        if (!total) return;
+
+        const answered = Object.keys(cityState.answers).length;
+        const progress = (answered / total) * 100;
+
+        if (elements.progressText) {
+            elements.progressText.textContent =
+                `${answered} de ${total} respondidas`;
+        }
+
+        if (elements.progressFill) {
+            elements.progressFill.style.width =
+                `${Math.min(100, progress)}%`;
+        }
+    }
+
+    function calculateCityResult() {
+        const total = cityState.questions.length;
+
+        let yesCount = 0;
+
+        cityState.questions.forEach(function (question) {
+            if (cityState.answers[question.id] === true) {
+                yesCount++;
+            }
+        });
+
+        const overall = Math.round((yesCount / total) * 100);
+
+        const dimensions = cityDiagnosisData.map(function (dimension) {
+            const relatedQuestions = cityState.questions.filter(function (q) {
+                return q.dimension === dimension.id;
+            });
+
+            const yes = relatedQuestions.filter(function (q) {
+                return cityState.answers[q.id] === true;
+            }).length;
+
+            return {
+                id: dimension.id,
+                title: dimension.title,
+                score: Math.round(
+                    (yes / relatedQuestions.length) * 100
+                ),
+                yes,
+                total: relatedQuestions.length,
+                recommendation: dimension.recommendation
+            };
+        });
+
         return {
-            title: "Maturidade baixa",
-            description: "O diagnóstico aponta a necessidade de estruturar políticas básicas de planejamento, serviços, sustentabilidade e transformação digital."
+            overall,
+            yesCount,
+            total,
+            dimensions
         };
     }
 
-    const recommendationMap = {
-        "Mobilidade": ["Priorizar mobilidade", "Ampliar transporte coletivo, melhorar calçadas e ciclovias e utilizar dados para compreender os deslocamentos urbanos."],
-        "Sustentabilidade": ["Fortalecer sustentabilidade", "Expandir áreas verdes, eficiência ambiental, redução de emissões e políticas de adaptação climática."],
-        "Água": ["Melhorar gestão da água", "Monitorar perdas, incentivar reúso, ampliar eficiência e acompanhar consumo e qualidade da água."],
-        "Energia": ["Modernizar energia", "Investir em eficiência energética, fontes renováveis, monitoramento e gestão inteligente da rede."],
-        "Transformação digital": ["Acelerar transformação digital", "Digitalizar serviços públicos de forma acessível, integrada, segura e orientada às necessidades dos cidadãos."],
-        "Governança": ["Ampliar governança", "Fortalecer transparência, participação social, dados públicos e acompanhamento das políticas."],
-        "Inclusão e serviços": ["Colocar pessoas no centro", "Melhorar acessibilidade, inclusão digital e distribuição equilibrada de serviços urbanos."],
-        "Resiliência": ["Aumentar resiliência", "Criar planos de prevenção, monitoramento e resposta para riscos climáticos e emergências."],
-        "Inovação": ["Estimular inovação", "Criar ambientes de experimentação, parcerias com universidades e empresas e projetos-piloto."]
-    };
+    function getMaturity(score) {
+        if (score < 25) {
+            return {
+                level: "Emergente",
+                description:
+                    "A cidade está começando sua jornada de transformação inteligente. O foco deve estar na criação de bases, infraestrutura e planejamento."
+            };
+        }
 
-    function renderDiagnosis(cityName, overallScore, maturity, dimensionScores) {
-        const ordered = [...dimensionScores].sort((a, b) => b.score - a.score);
-        const strengths = ordered.slice(0, 3);
-        const priorities = [...dimensionScores].sort((a, b) => a.score - b.score).slice(0, 3);
+        if (score < 45) {
+            return {
+                level: "Inicial",
+                description:
+                    "Existem algumas iniciativas positivas, mas ainda há importantes lacunas de integração, infraestrutura e gestão."
+            };
+        }
 
-        result.classList.remove("hidden");
-        questionsContainer.classList.add("hidden");
+        if (score < 65) {
+            return {
+                level: "Em desenvolvimento",
+                description:
+                    "A cidade apresenta uma base relevante de iniciativas inteligentes, mas ainda pode integrar melhor seus sistemas e serviços."
+            };
+        }
 
-        const nameEl = document.getElementById("resultCityName");
-        const scoreEl = document.getElementById("overallScore");
-        const maturityEl = document.getElementById("maturityLevel");
-        const dimensionsEl = document.getElementById("dimensionResults");
-        const strengthsEl = document.getElementById("cityStrengths");
-        const prioritiesEl = document.getElementById("cityPriorities");
-        const recommendationsEl = document.getElementById("cityRecommendations");
+        if (score < 85) {
+            return {
+                level: "Avançada",
+                description:
+                    "A cidade possui uma estrutura relativamente madura de políticas, tecnologia e sustentabilidade, com espaço para integração e inovação."
+            };
+        }
 
-        if (nameEl) nameEl.textContent = cityName;
-        if (scoreEl) scoreEl.textContent = `${overallScore}%`;
-        if (maturityEl) maturityEl.textContent = maturity.title;
+        return {
+            level: "Referência",
+            description:
+                "A cidade demonstra alto nível de maturidade em diferentes dimensões e apresenta características de uma cidade inteligente integrada."
+        };
+    }
 
-        if (dimensionsEl) {
-            dimensionsEl.innerHTML = dimensionScores.map(item => `
-                <div class="dimension-card">
-                    <div class="dimension-card-top">
-                        <span>${escapeHtml(item.name)}</span>
+    function finishCityDiagnosis() {
+        const elements = cityElements();
+
+        const unanswered = cityState.questions.filter(function (question) {
+            return typeof cityState.answers[question.id] !== "boolean";
+        });
+
+        if (unanswered.length > 0) {
+            cityState.currentQuestion =
+                cityState.questions.indexOf(unanswered[0]);
+
+            renderCityQuestion();
+            return;
+        }
+
+        cityState.result = calculateCityResult();
+        cityState.active = false;
+        cityState.finished = true;
+
+        const maturity = getMaturity(cityState.result.overall);
+
+        if (elements.progressText) {
+            elements.progressText.textContent =
+                `${cityState.result.total} de ${cityState.result.total} respondidas`;
+        }
+
+        if (elements.progressFill) {
+            elements.progressFill.style.width = "100%";
+        }
+
+        showCityElement(elements.questionsContainer, false);
+        showCityElement(elements.questionList, false);
+        showCityElement(elements.result, true);
+
+        if (elements.resultCityName) {
+            elements.resultCityName.textContent = cityState.cityName;
+        }
+
+        if (elements.overallScore) {
+            elements.overallScore.textContent =
+                `${cityState.result.overall}%`;
+        }
+
+        if (elements.maturityLevel) {
+            elements.maturityLevel.textContent = maturity.level;
+        }
+
+        if (elements.maturityDescription) {
+            elements.maturityDescription.textContent =
+                maturity.description;
+        }
+
+        renderDimensionResults(cityState.result.dimensions);
+        renderCityStrengths(cityState.result.dimensions);
+        renderCityPriorities(cityState.result.dimensions);
+        renderCityRecommendations(cityState.result.dimensions);
+
+        animateCityScore(elements.overallScore);
+
+        if (elements.result) {
+            setTimeout(function () {
+                elements.result.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }, 100);
+        }
+    }
+
+    function renderDimensionResults(dimensions) {
+        const elements = cityElements();
+
+        if (!elements.dimensionResults) return;
+
+        elements.dimensionResults.innerHTML = dimensions.map(function (item) {
+            return `
+                <div class="dimension-result" data-dimension="${item.id}">
+                    <div class="dimension-result-header">
+                        <span>${safeText(item.title)}</span>
                         <strong>${item.score}%</strong>
                     </div>
-                    <div class="dimension-bar"><span style="width:${item.score}%"></span></div>
-                    <small>${item.score >= 70 ? "Boa base" : item.score >= 40 ? "Em desenvolvimento" : "Precisa de atenção"}</small>
+
+                    <div class="dimension-progress">
+                        <span style="width: ${item.score}%"></span>
+                    </div>
                 </div>
-            `).join("");
-        }
-
-        if (strengthsEl) {
-            strengthsEl.innerHTML = strengths.map(item => `
-                <div class="diagnosis-item positive">
-                    <strong>${escapeHtml(item.name)}</strong>
-                    <span>${item.score}%</span>
-                </div>
-            `).join("");
-        }
-
-        if (prioritiesEl) {
-            prioritiesEl.innerHTML = priorities.map(item => `
-                <div class="diagnosis-item priority">
-                    <strong>${escapeHtml(item.name)}</strong>
-                    <span>${item.score}%</span>
-                </div>
-            `).join("");
-        }
-
-        if (recommendationsEl) {
-            recommendationsEl.innerHTML = priorities.map(item => {
-                const rec = recommendationMap[item.name] || ["Desenvolver esta dimensão", "Criar metas mensuráveis e acompanhar indicadores para melhorar progressivamente esta área."];
-                return `
-                    <article class="recommendation-card">
-                        <strong>${escapeHtml(rec[0])}</strong>
-                        <p>${escapeHtml(rec[1])}</p>
-                    </article>
-                `;
-            }).join("");
-        }
-
-        window.scrollTo({ top: result.getBoundingClientRect().top + window.scrollY - 100, behavior: "smooth" });
+            `;
+        }).join("");
     }
 
-    startButton.addEventListener("click", startTest);
-    cityNameInput.addEventListener("keydown", event => {
-        if (event.key === "Enter") startTest();
-    });
+    function renderCityStrengths(dimensions) {
+        const elements = cityElements();
 
-    document.addEventListener("click", event => {
-        if (!event.target.closest("#restartCityTest")) return;
-        answers.fill(null);
-        finished = false;
-        result.classList.add("hidden");
-        questionsContainer.classList.add("hidden");
-        intro.classList.remove("hidden");
-        cityNameInput.focus();
-        window.scrollTo({ top: 0, behavior: "smooth" });
-    });
-}
+        if (!elements.strengths) return;
 
+        const strengths = [...dimensions]
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 3);
 
-/* =========================================================
-   14. FILTROS DE FONTES
-   ========================================================= */
-
-function initializeSourceFilters() {
-
-    const filters =
-        document.querySelectorAll(
-            ".source-filter"
-        );
-
-    const cards =
-        document.querySelectorAll(
-            ".source-card"
-        );
-
-
-    if (!filters.length) {
-        return;
+        elements.strengths.innerHTML = strengths.map(function (item, index) {
+            return `
+                <div class="city-result-item strength-item">
+                    <span class="result-rank">${index + 1}</span>
+                    <div>
+                        <strong>${safeText(item.title)}</strong>
+                        <small>${item.score}% de desempenho</small>
+                    </div>
+                </div>
+            `;
+        }).join("");
     }
 
+    function renderCityPriorities(dimensions) {
+        const elements = cityElements();
 
-    filters.forEach(filter => {
+        if (!elements.priorities) return;
 
-        filter.addEventListener(
-            "click",
-            () => {
+        const priorities = [...dimensions]
+            .sort((a, b) => a.score - b.score)
+            .slice(0, 3);
+
+        elements.priorities.innerHTML = priorities.map(function (item, index) {
+            return `
+                <div class="city-result-item priority-item">
+                    <span class="result-rank">${index + 1}</span>
+                    <div>
+                        <strong>${safeText(item.title)}</strong>
+                        <small>${item.score}% — prioridade de melhoria</small>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    }
+
+    function renderCityRecommendations(dimensions) {
+        const elements = cityElements();
+
+        if (!elements.recommendations) return;
+
+        const priorities = [...dimensions]
+            .sort((a, b) => a.score - b.score)
+            .slice(0, 3);
+
+        elements.recommendations.innerHTML = priorities.map(function (item) {
+            return `
+                <article class="recommendation-card">
+                    <div class="recommendation-icon">→</div>
+                    <div>
+                        <h4>${safeText(item.title)}</h4>
+                        <p>${safeText(item.recommendation)}</p>
+                    </div>
+                </article>
+            `;
+        }).join("");
+    }
+
+    function animateCityScore(element) {
+        if (!element || !cityState.result) return;
+
+        const target = cityState.result.overall;
+        const duration = 900;
+        const start = performance.now();
+
+        function frame(now) {
+            const elapsed = now - start;
+            const progress = Math.min(1, elapsed / duration);
+
+            const eased =
+                1 - Math.pow(1 - progress, 3);
+
+            const value = Math.round(target * eased);
+
+            element.textContent = `${value}%`;
+
+            if (progress < 1) {
+                requestAnimationFrame(frame);
+            }
+        }
+
+        requestAnimationFrame(frame);
+    }
+
+    function resetCityDiagnosis() {
+        const elements = cityElements();
+
+        cityState.active = false;
+        cityState.finished = false;
+        cityState.cityName = "";
+        cityState.currentQuestion = 0;
+        cityState.answers = {};
+        cityState.questions = [];
+        cityState.result = null;
+
+        showCityElement(elements.intro, true);
+        showCityElement(elements.questionsContainer, false);
+        showCityElement(elements.questionList, false);
+        showCityElement(elements.result, false);
+
+        if (elements.progressText) {
+            elements.progressText.textContent = "0 de 18 respondidas";
+        }
+
+        if (elements.progressFill) {
+            elements.progressFill.style.width = "0%";
+        }
+
+        if (elements.nameInput) {
+            elements.nameInput.value = "";
+        }
+
+        if (elements.submitButton) {
+            elements.submitButton.disabled = true;
+            elements.submitButton.style.display = "none";
+        }
+    }
+
+    function cancelCityDiagnosis() {
+        resetCityDiagnosis();
+    }
+
+    function initializeCityDiagnosis() {
+        const elements = cityElements();
+
+        if (!elements.startButton &&
+            !elements.questionList &&
+            !elements.questionsContainer) {
+            return;
+        }
+
+        /*
+         * Remove listeners anteriores usando clones apenas quando
+         * necessário. Isso também torna a inicialização mais segura
+         * caso o site seja reinicializado após troca de aba.
+         */
+
+        if (elements.startButton) {
+            elements.startButton.addEventListener(
+                "click",
+                startCityDiagnosis
+            );
+        }
+
+        if (elements.cancelButton) {
+            elements.cancelButton.addEventListener(
+                "click",
+                cancelCityDiagnosis
+            );
+        }
+
+        if (elements.submitButton) {
+            elements.submitButton.addEventListener(
+                "click",
+                finishCityDiagnosis
+            );
+        }
+
+        if (elements.restartButton) {
+            elements.restartButton.addEventListener(
+                "click",
+                resetCityDiagnosis
+            );
+        }
+
+        /*
+         * Estado inicial seguro:
+         * a seção continua visível e somente os elementos internos
+         * necessários ficam ocultos.
+         */
+        showCityElement(elements.questionsContainer, false);
+        showCityElement(elements.questionList, false);
+        showCityElement(elements.result, false);
+
+        if (elements.progressText &&
+            !elements.progressText.textContent.trim()) {
+            elements.progressText.textContent =
+                "0 de 18 respondidas";
+        }
+
+        if (elements.progressFill) {
+            elements.progressFill.style.width = "0%";
+        }
+    }
+
+    /* ---------------------------------------------------------
+       FILTRO E BUSCA DE FONTES
+       --------------------------------------------------------- */
+
+    function initializeSources() {
+        const searchInput =
+            byId("sourcesSearch") ||
+            document.querySelector(".sources-search input");
+
+        const filterButtons =
+            $$(".source-filter, [data-source-filter]");
+
+        const sourceCards =
+            $$(".source-card, [data-source-category]");
+
+        function applySourceFilter() {
+            const search =
+                searchInput
+                    ? normalizeText(searchInput.value)
+                    : "";
+
+            let activeFilter = "all";
+
+            const activeButton =
+                document.querySelector(
+                    ".source-filter.active, " +
+                    "[data-source-filter].active"
+                );
+
+            if (activeButton) {
+                activeFilter =
+                    activeButton.dataset.sourceFilter ||
+                    activeButton.dataset.filter ||
+                    "all";
+            }
+
+            sourceCards.forEach(function (card) {
+                const text = normalizeText(
+                    card.textContent || ""
+                );
 
                 const category =
-                    filter.dataset.sourceFilter;
+                    card.dataset.sourceCategory ||
+                    card.dataset.category ||
+                    "all";
 
+                const matchesSearch =
+                    !search || text.includes(search);
 
-                filters.forEach(
-                    button => {
+                const matchesFilter =
+                    activeFilter === "all" ||
+                    category === activeFilter;
 
-                        button.classList.remove(
-                            "active"
-                        );
+                card.style.display =
+                    matchesSearch && matchesFilter
+                        ? ""
+                        : "none";
+            });
+        }
 
-                    }
-                );
+        if (searchInput) {
+            searchInput.addEventListener(
+                "input",
+                applySourceFilter
+            );
+        }
 
-
-                filter.classList.add(
-                    "active"
-                );
-
-
-                cards.forEach(card => {
-
-                    const cardCategory =
-                        card.dataset.sourceCategory;
-
-
-                    if (
-                        category === "todos" ||
-                        cardCategory === category
-                    ) {
-
-                        card.classList.remove(
-                            "hidden"
-                        );
-
-                    } else {
-
-                        card.classList.add(
-                            "hidden"
-                        );
-
-                    }
-
+        filterButtons.forEach(function (button) {
+            button.addEventListener("click", function () {
+                filterButtons.forEach(function (item) {
+                    item.classList.remove("active");
                 });
 
-            }
-        );
+                button.classList.add("active");
 
+                applySourceFilter();
+            });
+        });
+
+        applySourceFilter();
+    }
+
+    /* ---------------------------------------------------------
+       FORMULÁRIO DE OPINIÃO
+       --------------------------------------------------------- */
+
+    function initializeOpinionForm() {
+        const form =
+            byId("opinionForm") ||
+            document.querySelector(".opinion-form");
+
+        if (!form) return;
+
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+
+            const message =
+                byId("opinionMessage") ||
+                form.querySelector("textarea");
+
+            const feedback =
+                byId("opinionFeedback") ||
+                form.querySelector(".opinion-feedback");
+
+            if (!message || !message.value.trim()) {
+                if (feedback) {
+                    feedback.textContent =
+                        "Escreva uma opinião antes de enviar.";
+                    feedback.classList.add("show");
+                }
+                return;
+            }
+
+            if (feedback) {
+                feedback.textContent =
+                    "Obrigado! Sua opinião foi registrada nesta demonstração.";
+                feedback.classList.add("show");
+            }
+
+            form.reset();
+        });
+    }
+
+    /* ---------------------------------------------------------
+       CONTADORES DA PÁGINA INICIAL
+       --------------------------------------------------------- */
+
+    function initializeCounters() {
+        const counters =
+            $$("[data-counter]");
+
+        if (!counters.length) return;
+
+        const observer =
+            new IntersectionObserver(function (entries, obs) {
+                entries.forEach(function (entry) {
+                    if (!entry.isIntersecting) return;
+
+                    const element = entry.target;
+
+                    if (element.dataset.counterAnimated === "true") {
+                        return;
+                    }
+
+                    element.dataset.counterAnimated = "true";
+
+                    const target =
+                        parseFloat(element.dataset.counter) || 0;
+
+                    const suffix =
+                        element.dataset.suffix || "";
+
+                    const decimals =
+                        Number(element.dataset.decimals || 0);
+
+                    const duration = 1100;
+                    const start = performance.now();
+
+                    function animate(now) {
+                        const elapsed = now - start;
+                        const progress =
+                            Math.min(1, elapsed / duration);
+
+                        const eased =
+                            1 - Math.pow(1 - progress, 3);
+
+                        const value =
+                            target * eased;
+
+                        element.textContent =
+                            value.toFixed(decimals) + suffix;
+
+                        if (progress < 1) {
+                            requestAnimationFrame(animate);
+                        }
+                    }
+
+                    requestAnimationFrame(animate);
+                    obs.unobserve(element);
+                });
+            }, {
+                threshold: 0.25
+            });
+
+        counters.forEach(function (counter) {
+            observer.observe(counter);
+        });
+    }
+
+    /* ---------------------------------------------------------
+       NAVEGAÇÃO EXTRA / LINKS INTERNOS
+       --------------------------------------------------------- */
+
+    function initializeInternalLinks() {
+        document.addEventListener("click", function (event) {
+            const link =
+                event.target.closest(
+                    'a[href^="#"], [data-scroll-target]'
+                );
+
+            if (!link) return;
+
+            const targetId =
+                link.dataset.scrollTarget ||
+                link.getAttribute("href")?.replace("#", "");
+
+            if (!targetId) return;
+
+            const target = byId(targetId);
+
+            if (!target) return;
+
+            event.preventDefault();
+
+            scrollToElement(target);
+
+            if (history.replaceState) {
+                history.replaceState(
+                    null,
+                    "",
+                    `#${targetId}`
+                );
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       TECLADO DO DIAGNÓSTICO
+       --------------------------------------------------------- */
+
+    function initializeCityKeyboard() {
+        document.addEventListener("keydown", function (event) {
+            if (!cityState.active) return;
+
+            /*
+             * 1 = Sim
+             * 2 = Não
+             */
+            if (event.key === "1") {
+                const question =
+                    cityState.questions[cityState.currentQuestion];
+
+                if (question) {
+                    answerCityQuestion(question.id, true);
+                }
+            }
+
+            if (event.key === "2") {
+                const question =
+                    cityState.questions[cityState.currentQuestion];
+
+                if (question) {
+                    answerCityQuestion(question.id, false);
+                }
+            }
+        });
+    }
+
+    /* ---------------------------------------------------------
+       API PÚBLICA DO DIAGNÓSTICO
+       --------------------------------------------------------- */
+
+    window.CityDiagnosis = {
+        start: startCityDiagnosis,
+        cancel: cancelCityDiagnosis,
+        restart: resetCityDiagnosis,
+        answer: answerCityQuestion,
+        finish: finishCityDiagnosis,
+        getState: function () {
+            return {
+                active: cityState.active,
+                finished: cityState.finished,
+                cityName: cityState.cityName,
+                currentQuestion: cityState.currentQuestion,
+                answers: {
+                    ...cityState.answers
+                },
+                result: cityState.result
+            };
+        },
+
+        getQuestions: function () {
+            return cityState.questions.map(function (question) {
+                return {
+                    ...question
+                };
+            });
+        }
+    };
+
+    /* ---------------------------------------------------------
+       API GLOBAL
+       --------------------------------------------------------- */
+
+    window.SmartCity = window.SmartCity || {};
+
+    Object.assign(window.SmartCity, {
+        cityDiagnosis: window.CityDiagnosis,
+        sources: {
+            initialize: initializeSources,
+            filter: function () {
+                const input = byId("sourcesSearch");
+
+                if (input) {
+                    input.dispatchEvent(
+                        new Event("input", {
+                            bubbles: true
+                        })
+                    );
+                }
+            }
+        }
     });
 
-}
+    /* ---------------------------------------------------------
+       INICIALIZAÇÃO FINAL
+       --------------------------------------------------------- */
 
-
-/* =========================================================
-   15. TECLADO
-   ========================================================= */
-
-document.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key === "/" &&
-            document.activeElement.tagName !==
-            "INPUT"
-        ) {
-
-            const search =
-                document.getElementById(
-                    "searchInput"
-                );
-
-
-            if (search) {
-
-                event.preventDefault();
-
-                search.focus();
-
-            }
-
-        }
-
-
-        if (event.key === "Escape") {
-
-            const results =
-                document.getElementById(
-                    "searchResults"
-                );
-
-
-            if (results) {
-
-                results.classList.remove(
-                    "visible",
-                    "active"
-                );
-
-            }
-
-
-            if (
-                typeof window.closeMobileMenu ===
-                "function"
-            ) {
-
-                window.closeMobileMenu();
-
-            }
-
-        }
-
+    function initializePartFive() {
+        initializeCityDiagnosis();
+        initializeSources();
+        initializeOpinionForm();
+        initializeCounters();
+        initializeInternalLinks();
+        initializeCityKeyboard();
     }
-);
 
+    /*
+     * Como as partes anteriores podem já ter registrado
+     * DOMContentLoaded, esta parte utiliza uma inicialização
+     * independente e segura.
+     */
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializePartFive,
+            { once: true }
+        );
+    } else {
+        initializePartFive();
+    }
 
-/* =========================================================
-   16. FINALIZAÇÃO
-   ========================================================= */
-
-console.log(
-    "Smart City Singapura carregado com sucesso."
-);
+})();
